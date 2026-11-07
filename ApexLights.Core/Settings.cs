@@ -9,6 +9,7 @@ namespace ApexLights.Core;
 
 public sealed class Settings
 {
+    public IndicatorSettings Indicators { get; set; } = new();
     public int Count { get; set; } = 12;
     public string[] Colors { get; set; } = DefaultColors();
     public static string[] DefaultColors() => ["#43EC86", "#FFCF46", "#FF513D", "#479BFF"];
@@ -34,6 +35,8 @@ public sealed class Settings
     {
         static double Limit(double n, double low, double high, double fallback) =>
             double.IsFinite(n) ? Math.Clamp(n, low, high) : fallback;
+        Indicators ??= new();
+        Indicators.Normalize();
         Count = Math.Clamp(Count, 10, 12);
         Gap = Limit(Gap, 1, 14, 5);
         LensSize = Limit(LensSize, 12, 44, 25);

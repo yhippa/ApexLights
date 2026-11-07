@@ -15,7 +15,7 @@ using ApexLights.Core;
 
 namespace ApexLights;
 
-public sealed class ControlWindow : Window
+public sealed partial class ControlWindow : Window
 {
     private readonly Runtime app;
     private Settings S => app.Config;
@@ -82,7 +82,7 @@ public sealed class ControlWindow : Window
 
         tabs.Margin = new(24, 0, 24, 12);
         DockPanel.SetDock(tabs, Dock.Top); shell.Children.Add(tabs);
-        string[] names = ["Telemetry", "Appearance", "Placement"];
+        string[] names = ["Telemetry", "Appearance", "Placement", "Indicators"];
         for (int i = 0; i < names.Length; i++)
         {
             int index = i;
@@ -107,10 +107,14 @@ public sealed class ControlWindow : Window
 
     public void Configure() { preview.Configure(S); preview.Opacity = S.Opacity; }
     public void RefreshSourceSelection() => BuildPage();
-    public void DisplayFrame(LightFrame frame) => preview.Display(frame);
+    public void DisplayFrame(LightFrame frame, IndicatorFrame indicators)
+    {
+        preview.Display(frame);
+        preview.DisplayIndicators(indicators);
+    }
     public void ModeChanged() { edit.Content = app.Overlay.Editing ? "Lock overlay" : "Edit overlay"; }
 
-    public void Display(LightFrame frame, double rpm, int gear, bool isDemo, Sample? live, string? warning)
+    public void Display(LightFrame frame, double rpm, int? gear, bool isDemo, Sample? live, string? warning)
     {
         preview.Display(frame);
         string identity = live?.Car.Key ?? "";
@@ -124,7 +128,7 @@ public sealed class ControlWindow : Window
         string mode = live != null ? "LIVE  /  " + carName : demo ? "DEMO  /  " +
             (S.Source == SourceMode.Automatic ? "AUTO" : "MANUAL") : "WAITING FOR IRACING";
         if (sourceLabel.Text != mode) sourceLabel.Text = mode;
-        string output = live == null && !demo ? "— RPM" : $"{rpm:N0} RPM" + (live != null ? $"   G {(gear < 0 ? "R" : gear == 0 ? "N" : gear)}" : "");
+        string output = live == null && !demo ? "— RPM" : $"{rpm:N0} RPM" + (gear != null ? $"   G {GearDisplay.Format(gear)}" : "");
         if (reading.Text != output) reading.Text = output;
         if (previousWarning != warning) { previousWarning = warning; SetNotice(warning ?? ""); }
         if (tab == 2 && previousScale != S.Scale) BuildPage();
@@ -140,6 +144,7 @@ public sealed class ControlWindow : Window
         if (tab == 0) TelemetryPage();
         if (tab == 1) AppearancePage();
         if (tab == 2) PlacementPage();
+        if (tab == 3) IndicatorsPage();
     }
 
     private void Heading(string title)

@@ -179,17 +179,20 @@ public sealed class Runtime : IDisposable
             rpm = Sweep ? floor + (DemoMaximum - floor) * progress : ManualRpm;
         }
         var frame = engine.Evaluate(rpm, points, Config.Count, Config.Offset, Config.Flash, Config.Hz, seconds);
+        int? gear = demo ? 3 : live?.Gear;
+        var indicators = new IndicatorFrame(Config.Indicators.ShowGear ? GearDisplay.Format(gear) : "");
         Overlay.Strip.Display(frame);
+        Overlay.Strip.DisplayIndicators(indicators);
         bool animated = live != null || (demo && Sweep) || frame.Flashing;
         var interval = TimeSpan.FromMilliseconds(animated ? 16 : 180);
         if (update.Interval != interval) update.Interval = interval;
         if (controls?.IsVisible == true)
         {
-            controls.DisplayFrame(frame);
+            controls.DisplayFrame(frame, indicators);
             if (seconds - lastReadout >= .12)
             {
                 lastReadout = seconds;
-                controls.Display(frame, rpm, live?.Gear ?? 0, demo, live,
+                controls.Display(frame, rpm, gear, demo, live,
                     store.Warning ?? (Overlay.Shortcut == null ? "Global shortcut unavailable. Use Edit overlay here or in the tray." : null));
             }
         }

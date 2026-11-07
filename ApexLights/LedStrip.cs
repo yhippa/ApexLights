@@ -5,7 +5,7 @@ using ApexLights.Core;
 
 namespace ApexLights;
 
-public sealed class LedStrip : FrameworkElement
+public sealed partial class LedStrip : FrameworkElement
 {
     private Settings settings = new();
     private LightFrame frame;
@@ -23,12 +23,12 @@ public sealed class LedStrip : FrameworkElement
     private static Brush Gradient(string a, string b) =>
         Freeze(new LinearGradientBrush((Color)ColorConverter.ConvertFromString(a), (Color)ColorConverter.ConvertFromString(b), 90));
 
-    public static Size Footprint(Settings s) => new(18 + s.Count * s.LensSize + (s.Count - 1) * s.Gap,
-        16 + s.LensSize * (s.Shape == LensShape.Blade ? 0.72 : 1));
+    public static Size Footprint(Settings s) => new StripLayout(s).Size;
 
     public void Configure(Settings s)
     {
         settings = s;
+        gearText = null;
         for (int i = 0; i < 4; i++)
         {
             Color c = (Color)ColorConverter.ConvertFromString(s.Colors[i]);
@@ -52,7 +52,8 @@ public sealed class LedStrip : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
-        Size design = Footprint(settings);
+        var layout = new StripLayout(settings);
+        Size design = layout.Size;
         double scale = Math.Min(ActualWidth / design.Width, ActualHeight / design.Height);
         if (scale <= 0) return;
         dc.PushTransform(new TranslateTransform((ActualWidth - design.Width * scale) / 2,
@@ -63,11 +64,12 @@ public sealed class LedStrip : FrameworkElement
             dc.DrawRoundedRectangle(Housing, Rim, new Rect(1, 1, design.Width - 2, design.Height - 2), 7, 7);
             dc.DrawLine(Rail, new Point(10, 3), new Point(design.Width - 10, 3));
         }
-        double height = design.Height - 16;
+        DrawIndicators(dc, layout);
+        double height = layout.LensHeight;
         double radius = settings.Shape == LensShape.Round ? height / 2 : settings.Shape == LensShape.Square ? 1 : 3;
         for (int i = 0; i < settings.Count; i++)
         {
-            var rect = new Rect(9 + i * (settings.LensSize + settings.Gap), 8, settings.LensSize, height);
+            var rect = new Rect(layout.LensX(i), (design.Height - height) / 2, settings.LensSize, height);
             int rank = ShiftLights.Rank(i, settings.Count, settings.Direction);
             int zone = ShiftLights.ColorZone(rank, settings.Count);
             bool on = rank < frame.Lit && frame.BrightPhase;

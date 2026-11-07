@@ -16,6 +16,9 @@ internal static class Program
     private static int passed, failed;
     private static void Main(string[] args)
     {
+        Run("Gear formatting covers reverse, neutral, forward and unavailable", () =>
+            Assert(GearDisplay.Format(-1) == "R" && GearDisplay.Format(0) == "N" && GearDisplay.Format(12) == "12"
+                && GearDisplay.Format(null) == "" && GearDisplay.Format(31) == "", "gear label"));
         Run("Each LED boundary, below and at threshold, for 10–12 LEDs", Boundaries);
         Run("Shift flash cadence, reset on RPM drop and re-entry", Flash);
         Run("SDK blink point, disabled flash and RPM adjustment", Triggers);
