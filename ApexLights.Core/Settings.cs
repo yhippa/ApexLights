@@ -16,6 +16,7 @@ public sealed class Settings
     public Progression Direction { get; set; }
     public LensShape Shape { get; set; }
     public double Brightness { get; set; } = 0.92;
+    public double InactiveBrightness { get; set; } = .22;
     public double Opacity { get; set; } = 1;
     public double LensSize { get; set; } = 25;
     public double Gap { get; set; } = 5;
@@ -31,6 +32,13 @@ public sealed class Settings
     public Thresholds Demo { get; set; } = Thresholds.Default;
     public Dictionary<string, Thresholds> Cars { get; set; } = new();
 
+    public Settings PreviewAllIndicators()
+    {
+        var copy = (Settings)MemberwiseClone();
+        copy.Indicators = Indicators.PreviewAll();
+        return copy;
+    }
+
     public void Normalize()
     {
         static double Limit(double n, double low, double high, double fallback) =>
@@ -42,6 +50,7 @@ public sealed class Settings
         LensSize = Limit(LensSize, 12, 44, 25);
         Scale = Limit(Scale, 0.5, 2.5, 1);
         Brightness = Limit(Brightness, 0.1, 1, 0.92);
+        InactiveBrightness = Limit(InactiveBrightness, 0, 1, .22);
         Opacity = Limit(Opacity, 0.15, 1, 1);
         Hz = Math.Clamp(Hz, 1, 10);
         Offset = Math.Clamp(Offset, -1500, 1500);

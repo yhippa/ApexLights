@@ -2,6 +2,8 @@ using System;
 
 namespace ApexLights.Core;
 
+public enum FlagProminence { Informational, Caution, Critical }
+
 public sealed class IndicatorPolicy
 {
     public const RaceFlag Supported = RaceFlag.Red | RaceFlag.Black | RaceFlag.Repair | RaceFlag.WavingYellow |
@@ -12,17 +14,32 @@ public sealed class IndicatorPolicy
     private static readonly RaceFlag[] Order = [RaceFlag.Red, RaceFlag.Black, RaceFlag.Repair,
         RaceFlag.WavingYellow, RaceFlag.WavingCaution, RaceFlag.Yellow, RaceFlag.Caution,
         RaceFlag.Blue, RaceFlag.Checkered, RaceFlag.White, RaceFlag.Green];
-    private enum Phase { Clear, Visible, Dismissed, Expired }
+    public static FlagProminence Prominence(RaceFlag flag) => flag switch
+    {
+        RaceFlag.Red or RaceFlag.Black or RaceFlag.Repair => FlagProminence.Critical,
+        RaceFlag.Blue or RaceFlag.Yellow or RaceFlag.WavingYellow or RaceFlag.Caution or RaceFlag.WavingCaution => FlagProminence.Caution,
+        _ => FlagProminence.Informational
+    };
+
+    private enum Phase { Clear, Pending, Visible, Dismissed, Expired }
     private struct Alert
     {
         public Phase Phase;
         public double Began;
-        public void Update(bool raised, double time, IndicatorSettings options)
+        public void Update(bool raised, bool critical, double time, IndicatorSettings options)
         {
             if (!raised) { Phase = Phase.Clear; return; }
-            if (Phase == Phase.Clear) { Began = time; Phase = Phase.Visible; }
-            if (Phase == Phase.Visible && options.FlagLifetime == FlagLifetime.Timed &&
+            if (Phase == Phase.Clear) { Began = time; Phase = Phase.Pending; }
+            if ((Phase == Phase.Visible || (Phase == Phase.Pending && !critical)) && options.FlagLifetime == FlagLifetime.Timed &&
                 time - Began >= options.AlertSeconds) Phase = Phase.Expired;
+        }
+
+        public void Present(bool critical, double time)
+        {
+            if (Phase != Phase.Pending) return;
+            // A still-raised critical flag gets its display time even if a higher flag occupied the slot.
+            if (critical) Began = time;
+            Phase = Phase.Visible;
         }
     }
 
@@ -54,16 +71,24 @@ public sealed class IndicatorPolicy
         displayed = -1;
         for (int i = 0; i < Order.Length; i++)
         {
-            alerts[i].Update((enabled & Order[i]) != 0, seconds, options);
-            if (displayed < 0 && alerts[i].Phase == Phase.Visible) displayed = i;
+            bool critical = Prominence(Order[i]) == FlagProminence.Critical;
+            alerts[i].Update((enabled & Order[i]) != 0, critical, seconds, options);
+            if (displayed < 0 && alerts[i].Phase is Phase.Pending or Phase.Visible)
+            {
+                alerts[i].Present(critical, seconds);
+                displayed = i;
+            }
         }
         var (left, right) = options.ShowProximity ? Sides(signal.Spotter) : (0, 0);
         // A short fading outline on entry is the only flag animation. RPM flashing owns the blink cadence.
         int accent = 0;
-        if (displayed >= 0 && options.AnimateEntry && !lights.Flashing)
-            accent = Math.Clamp(4 - (int)((seconds - alerts[displayed].Began) * 8), 0, 4);
-        return new(options.ShowGear ? GearDisplay.Format(signal.Gear) : "",
-            displayed < 0 ? RaceFlag.None : Order[displayed], left, right, accent);
+        RaceFlag flag = displayed < 0 ? RaceFlag.None : Order[displayed];
+        double age = displayed < 0 ? 0 : seconds - alerts[displayed].Began;
+        bool notice = Prominence(flag) == FlagProminence.Informational;
+        if (displayed >= 0 && !notice && options.AnimateEntry && !lights.Flashing)
+            accent = age < .5 ? Math.Clamp(4 - (int)(age * 8), 0, 4) : 0;
+        return new(options.ShowGear ? GearDisplay.Format(signal.Gear) : "", flag, left, right, accent,
+            displayed >= 0 && notice && age >= 1.5);
     }
 
     private static (int, int) Sides(SpotterState state) => state switch

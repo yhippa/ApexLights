@@ -9,6 +9,7 @@ namespace ApexLights;
 public sealed partial class LedStrip
 {
     private static readonly Brush Amber = Solid("#FFBE46"), Ink = Solid("#10171A"), Chalk = Solid("#F4F7F2");
+    private static readonly Brush StatusWell = Solid("#202629");
     private static readonly Brush FlagYellow = Solid("#FFCF3C"), FlagRed = Solid("#FF6254"),
         FlagBlue = Solid("#73B9FF"), FlagGreen = Solid("#59E695"), Orange = Solid("#FF9048");
     private static readonly Pen DarkEdge = Freeze(new Pen(Ink, 1.8)), LightEdge = Freeze(new Pen(Chalk, 2));
@@ -27,16 +28,16 @@ public sealed partial class LedStrip
         var tile = new Rect(0, 0, width, height);
         if (settings.Indicators.SideStyle == SideStyle.Lamps)
         {
-            dc.DrawRoundedRectangle(Ink, LightEdge, tile, 5, 5);
+            dc.DrawRoundedRectangle(StatusWell, null, tile, 4, 4);
             double lampWidth = count == 2 ? 16 : 36;
             for (int i = 0; i < count; i++)
                 dc.DrawRoundedRectangle(Amber, null, new Rect(5 + i * 20, 4, lampWidth, height - 8), 3, 3);
         }
         else
         {
-            dc.DrawRoundedRectangle(Amber, DarkEdge, tile, 5, 5);
+            dc.DrawRoundedRectangle(Amber, null, tile, 4, 4);
             if (!left) dc.PushTransform(new MatrixTransform(-1, 0, 0, 1, width, 0));
-            double start = count == 2 ? 5 : 15;
+            double start = (width - (count == 2 ? 36 : 16)) / 2;
             for (int i = 0; i < count; i++)
             {
                 dc.PushTransform(new TranslateTransform(start + i * 20, (height - 24) / 2));
@@ -64,16 +65,23 @@ public sealed partial class LedStrip
         var flag = indicators.Flag;
         var (fill, label) = FlagArt(flag);
         double scale = settings.Indicators.FlagScale;
-        bool labeled = settings.Indicators.FlagStyle == FlagStyle.Labeled;
+        var prominence = IndicatorPolicy.Prominence(flag);
+        bool notice = prominence == FlagProminence.Informational;
+        bool critical = prominence == FlagProminence.Critical;
+        bool labeled = settings.Indicators.FlagStyle == FlagStyle.Labeled && !indicators.NoticeSettled;
         double width = layout.FlagWidth / scale;
-        var tile = new Rect(0, 0, width, StripLayout.FlagTileHeight);
+        double faceWidth = indicators.NoticeSettled ? Math.Min(46, width) : width;
+        var tile = new Rect(0, 0, faceWidth, StripLayout.FlagTileHeight);
         dc.PushTransform(new TranslateTransform(layout.FlagX, (layout.Size.Height - tile.Height * scale) / 2));
         dc.PushTransform(new ScaleTransform(scale, scale));
-        dc.DrawRoundedRectangle(fill, DarkEdge, tile, 5, 5);
-        dc.PushTransform(new TranslateTransform(labeled ? 9 : (width - 28) / 2, 8));
-        dc.DrawLine(DarkEdge, new Point(0, -1), new Point(0, 25));
-        Brush fabric = flag is RaceFlag.White or RaceFlag.Checkered ? Chalk : Ink;
-        dc.DrawGeometry(fabric, DarkEdge, Banner);
+        dc.DrawRoundedRectangle(critical ? fill : StatusWell, null, tile, 4, 4);
+        if (prominence == FlagProminence.Caution)
+            dc.DrawRoundedRectangle(fill, null, new Rect(0, 0, labeled ? 46 : faceWidth, tile.Height), 4, 4);
+        dc.PushTransform(new TranslateTransform(labeled ? 9 : (faceWidth - 28) / 2, 8));
+        Pen edge = notice ? LightEdge : DarkEdge;
+        dc.DrawLine(edge, new Point(0, -1), new Point(0, 25));
+        Brush fabric = notice ? fill : Ink;
+        dc.DrawGeometry(fabric, edge, Banner);
         if (flag == RaceFlag.Checkered)
         {
             dc.PushClip(Banner);
@@ -94,8 +102,8 @@ public sealed partial class LedStrip
             double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             if (flagLabel == null || flagLabel.Text != label || flagLabel.PixelsPerDip != dpi)
                 flagLabel = new FormattedText(label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                    FlagTypeface, 18, Ink, dpi);
-            dc.DrawText(flagLabel, new Point(45, (tile.Height - flagLabel.Height) / 2));
+                    FlagTypeface, 18, critical ? Ink : (notice ? fill : Chalk), dpi);
+            dc.DrawText(flagLabel, new Point(critical ? 45 : 50, (tile.Height - flagLabel.Height) / 2));
         }
         if (indicators.Accent > 0)
         {

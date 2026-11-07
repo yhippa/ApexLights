@@ -42,6 +42,14 @@ public sealed class IndicatorSettings
     }
 
     private static double NormalizeScale(double value) => double.IsFinite(value) ? Math.Clamp(value, .75, 1.75) : 1;
+
+    internal IndicatorSettings PreviewAll()
+    {
+        var copy = (IndicatorSettings)MemberwiseClone();
+        copy.ShowGear = copy.ShowFlags = copy.ShowProximity = true;
+        copy.EnabledFlags = IndicatorPolicy.Supported;
+        return copy;
+    }
 }
 
 public static class GearDisplay
@@ -55,4 +63,4 @@ public static class GearDisplay
 }
 
 public readonly record struct IndicatorFrame(string Gear, RaceFlag Flag = RaceFlag.None,
-    int Left = 0, int Right = 0, int Accent = 0);
+    int Left = 0, int Right = 0, int Accent = 0, bool NoticeSettled = false);
