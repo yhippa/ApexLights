@@ -44,6 +44,7 @@ public sealed partial class LedStrip
 {
     private IndicatorFrame indicators;
     private FormattedText? gearText;
+    private bool compactGear;
 
     public void DisplayIndicators(IndicatorFrame next)
     {
@@ -63,10 +64,16 @@ public sealed partial class LedStrip
         if (!settings.Indicators.ShowGear || string.IsNullOrEmpty(indicators.Gear)) return;
         var options = settings.Indicators;
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        if (gearText == null || gearText.Text != indicators.Gear || gearText.PixelsPerDip != dpi)
+        double scale = Math.Min(ActualWidth / layout.Size.Width, ActualHeight / layout.Size.Height);
+        bool compact = options.GearSize * scale * dpi < 20;
+        if (gearText == null || gearText.Text != indicators.Gear || gearText.PixelsPerDip != dpi || compactGear != compact)
+        {
+            compactGear = compact;
             gearText = new FormattedText(indicators.Gear, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                new Typeface(new FontFamily(options.GearFont), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+                new Typeface(new FontFamily(options.GearFont), FontStyles.Normal,
+                    compact ? FontWeights.Bold : FontWeights.SemiBold, FontStretches.Normal),
                 options.GearSize, Brushes.WhiteSmoke, dpi);
+        }
         dc.DrawText(gearText, new Point(layout.GearCenter - gearText.Width / 2, (layout.Size.Height - gearText.Height) / 2));
     }
 }

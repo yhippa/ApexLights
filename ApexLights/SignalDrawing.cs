@@ -16,7 +16,7 @@ public sealed partial class LedStrip
     private static readonly Geometry Chevron = Freeze(Geometry.Parse("M8,0 H16 L8,12 L16,24 H8 L0,12 Z"));
     private static readonly Geometry Banner = Freeze(Geometry.Parse("M0,0 Q7,-3 14,0 T28,0 V18 Q21,21 14,18 T0,18 Z"));
     private static readonly Typeface FlagTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
-    private FormattedText? flagLabel;
+    private FormattedText? flagLabel, waveCaption;
 
     private void DrawSide(DrawingContext dc, StripLayout layout, bool left, int count)
     {
@@ -56,7 +56,7 @@ public sealed partial class LedStrip
         RaceFlag.Black => (Chalk, "BLACK"), RaceFlag.Repair => (Orange, "REPAIR"),
         RaceFlag.Blue => (FlagBlue, "BLUE"), RaceFlag.White => (Chalk, "WHITE"),
         RaceFlag.Checkered => (Chalk, "FINISH"),
-        RaceFlag.WavingYellow => (FlagYellow, "WAVING"), RaceFlag.WavingCaution => (FlagYellow, "FCY WAVE"),
+        RaceFlag.WavingYellow => (FlagYellow, "YELLOW"), RaceFlag.WavingCaution => (FlagYellow, "CAUTION"),
         RaceFlag.Caution => (FlagYellow, "CAUTION"), _ => (FlagYellow, "YELLOW")
     };
 
@@ -91,7 +91,8 @@ public sealed partial class LedStrip
             dc.Pop();
         }
         if (flag == RaceFlag.Repair) dc.DrawEllipse(Orange, null, new Point(14, 9), 5, 5);
-        if (flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution)
+        bool waving = flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution;
+        if (waving)
         {
             dc.DrawLine(DarkEdge, new Point(8, 23), new Point(20, 23));
             dc.DrawLine(DarkEdge, new Point(15, 26), new Point(25, 26));
@@ -103,7 +104,17 @@ public sealed partial class LedStrip
             if (flagLabel == null || flagLabel.Text != label || flagLabel.PixelsPerDip != dpi)
                 flagLabel = new FormattedText(label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
                     FlagTypeface, 18, critical ? Ink : (notice ? fill : Chalk), dpi);
-            dc.DrawText(flagLabel, new Point(critical ? 45 : 50, (tile.Height - flagLabel.Height) / 2));
+            double x = critical ? 45 : 50;
+            if (waving)
+            {
+                if (waveCaption == null || waveCaption.PixelsPerDip != dpi)
+                    waveCaption = new FormattedText("WAVING", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                        FlagTypeface, 10, fill, dpi);
+                double y = (tile.Height - flagLabel.Height - waveCaption.Height) / 2;
+                dc.DrawText(flagLabel, new Point(x, y));
+                dc.DrawText(waveCaption, new Point(x, y + flagLabel.Height));
+            }
+            else dc.DrawText(flagLabel, new Point(x, (tile.Height - flagLabel.Height) / 2));
         }
         if (indicators.Accent > 0)
         {
