@@ -6,7 +6,10 @@ using System.Threading;
 
 namespace ApexLights.Core;
 
-public sealed record Sample(float Rpm, int Gear, int Tick, CarSession Car);
+public sealed record Sample(float Rpm, int Tick, CarSession Car, RaceSignal Signal)
+{
+    public int? Gear => Signal.Gear;
+}
 
 /// <summary>Decoder of the IRSDK v2 live mapped view. The caller owns the view.</summary>
 public sealed class SdkReader(MemoryMappedViewAccessor view)
@@ -15,6 +18,9 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
     private const int FixedHeader = 112, SlotBase = 48, SlotSize = 16, VariableSize = 144;
     private int? knownRevision;
     private int variables, table, rowSize, rpmOffset = -1, gearOffset = -1;
+    private static long nextConnection;
+    private readonly long connection = Interlocked.Increment(ref nextConnection);
+    private int flagsOffset, spotterOffset, uniqueOffset, numberOffset;
     private CarSession? session;
     private int? lastTick;
 
@@ -60,19 +66,24 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
         Range(row, size);
         Thread.MemoryBarrier();
         float rpm = view.ReadSingle((long)row + rpmOffset);
-        int gear = Int(checked(row + gearOffset));
+        int? Channel(int offset) => offset < 0 ? null : view.ReadInt32((long)row + offset);
+        int? gear = Channel(gearOffset);
+        var flags = (RaceFlag)(uint)(Channel(flagsOffset) ?? 0);
+        int side = Channel(spotterOffset) ?? 0;
+        var spotter = side is >= 0 and <= 6 ? (SpotterState)side : SpotterState.Off;
+        var key = new SessionKey(connection, Channel(uniqueOffset), Channel(numberOffset), session!.Key);
         Thread.MemoryBarrier();
         if (Int(best) != tick || Int(12) != revision || (Int(4) & 1) == 0) return null;
-        if (!float.IsFinite(rpm) || rpm is < 0 or > 100000 || gear is < -1 or > 30)
-            throw new InvalidDataException("Invalid RPM or gear.");
+        if (!float.IsFinite(rpm) || rpm is < 0 or > 100000)
+            throw new InvalidDataException("Invalid RPM.");
         lastTick = tick;
-        return new(rpm, gear, tick, session!);
+        return new(rpm, tick, session, new(gear is >= -1 and <= 30 ? gear : null, flags, spotter, key));
     }
 
     private void LoadVariables(int count, int start, int size)
     {
         Range(start, (long)count * VariableSize);
-        int rpm = -1, gear = -1;
+        rpmOffset = gearOffset = flagsOffset = spotterOffset = uniqueOffset = numberOffset = -1;
         var nameBytes = new byte[32];
         for (int i = 0; i < count; i++)
         {
@@ -80,13 +91,19 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
             view.ReadArray(entry + 16, nameBytes, 0, nameBytes.Length);
             int end = Array.IndexOf(nameBytes, (byte)0);
             string name = Encoding.ASCII.GetString(nameBytes, 0, end < 0 ? 32 : end);
-            if (name != "RPM" && name != "Gear") continue;
             int type = view.ReadInt32(entry), offset = view.ReadInt32(entry + 4);
             if (view.ReadInt32(entry + 8) != 1 || offset < 0 || offset > size - 4) continue;
-            if (name == "RPM" && type == 4) rpm = offset;
-            if (name == "Gear" && type == 2) gear = offset;
+            switch (name, type)
+            {
+                case ("RPM", 4): rpmOffset = offset; break;
+                case ("Gear", 2): gearOffset = offset; break;
+                case ("SessionFlags", 3): flagsOffset = offset; break;
+                case ("CarLeftRight", 2): spotterOffset = offset; break;
+                case ("SessionUniqueID", 2): uniqueOffset = offset; break;
+                case ("SessionNum", 2): numberOffset = offset; break;
+            }
         }
-        if (rpm < 0 || gear < 0) throw new InvalidDataException("Required SDK variables missing.");
-        (variables, table, rowSize, rpmOffset, gearOffset) = (count, start, size, rpm, gear);
+        if (rpmOffset < 0) throw new InvalidDataException("Required RPM channel missing.");
+        (variables, table, rowSize) = (count, start, size);
     }
 }

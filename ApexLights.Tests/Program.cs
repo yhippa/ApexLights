@@ -24,6 +24,8 @@ internal static class Program
         Run("JSON round trip retains styling, negative position and per-car overrides", Persistence);
         Run("Malformed JSON and invalid persisted values recover", CorruptSettings);
         Run("SDK latest buffer selection, revision changes and car identity", Decode);
+        Run("Optional SDK channels cannot interrupt RPM", OptionalChannels);
+        Run("SDK reads verified flag and spotter types from the selected row", AwarenessChannels);
         Run("SDK rejects invalid metadata, channel types and values", BadMapping);
         Run("SDK waits, attaches, disconnects and attaches to a replacement mapping", Reconnect);
         if (args.Length == 2 && args[0] == "--recording")
@@ -173,6 +175,46 @@ internal static class Program
         s = decoder.Read()!;
         Assert(s.Tick == 11 && s.Rpm == 4200 && s.Car.Key == "id-817", "car/row refresh");
     }
+    private static void OptionalChannels()
+    {
+        using var map = MemoryMappedFile.CreateNew(null, 4096);
+        using var w = map.CreateViewAccessor();
+        using var view = map.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+        Fill(w, 146);
+        w.Write(112, 4); // wrong Gear type
+        var s = new SdkReader(view).Read()!;
+        Assert(s.Rpm == 6900 && s.Gear == null && s.Signal.Flags == 0 &&
+            s.Signal.Spotter == SpotterState.Off, "missing optional channels");
+    }
+
+    private static void AwarenessChannels()
+    {
+        using var map = MemoryMappedFile.CreateNew(null, 8192);
+        using var w = map.CreateViewAccessor();
+        using var view = map.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+        Fill(w, 146);
+        // Copy descriptors to a larger table with room for the optional channels.
+        var descriptors = new byte[288];
+        w.ReadArray(112, descriptors, 0, descriptors.Length);
+        w.WriteArray(4096, descriptors, 0, descriptors.Length);
+        w.Write(28, 4096); w.Write(24, 4);
+        void Add(int index, string name, int type, int offset)
+        {
+            int address = 4096 + index * 144;
+            w.Write(address, type); w.Write(address + 4, offset); w.Write(address + 8, 1);
+            byte[] bytes = Encoding.ASCII.GetBytes(name);
+            w.WriteArray(address + 16, bytes, 0, bytes.Length);
+        }
+        Add(2, "SessionFlags", 3, 0); Add(3, "CarLeftRight", 2, 12);
+        w.Write(Row1, 0x10020); w.Write(Row1 + 12, 5);
+        var reader = new SdkReader(view);
+        var s = reader.Read()!;
+        Assert(s.Signal.Flags == (RaceFlag.Black | RaceFlag.Blue) && s.Signal.Spotter == SpotterState.TwoLeft, "typed fields");
+        Add(2, "SessionFlags", 2, 0); w.Write(12, 2); w.Write(Row1 + 12, 127);
+        s = reader.Read()!;
+        Assert(s.Signal.Flags == 0 && s.Signal.Spotter == SpotterState.Off && s.Rpm == 6900, "optional channel recovery");
+    }
+
     private static void BadMapping()
     {
         using var map = MemoryMappedFile.CreateNew(null, 4096);
