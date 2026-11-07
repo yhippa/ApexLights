@@ -52,6 +52,7 @@ public sealed class Runtime : IDisposable
     public Settings Config { get; }
     public Overlay Overlay { get; }
     public bool Exiting { get; private set; }
+    public DemoSignals DemoSignals { get; } = new();
     public bool Sweep { get; set; } = true;
     public double ManualRpm { get; set; } = 6400;
     public double DemoMaximum
@@ -121,6 +122,7 @@ public sealed class Runtime : IDisposable
     public void SetSource(SourceMode mode)
     {
         Config.Source = mode;
+        policy.Reset();
         receivedLive = false;
         UpdateFeed();
         ScheduleSave();
@@ -128,6 +130,8 @@ public sealed class Runtime : IDisposable
         Tick();
         controls?.RefreshSourceSelection();
     }
+
+    public void RefreshDemo() { lastReadout = -1; Tick(); }
 
     public void DismissFlag() { policy.Dismiss(); Tick(); }
 
@@ -166,7 +170,8 @@ public sealed class Runtime : IDisposable
             (Config.Source == SourceMode.Automatic && live == null && !receivedLive);
         var points = live == null ? Config.Demo : Config.Cars.GetValueOrDefault(live.Car.Key, live.Car.Points);
         double seconds = time.Elapsed.TotalSeconds;
-        string source = live != null ? "live/" + live.Car.Key : demo ? "demo" : "idle";
+        bool demoOnline = demo && DemoSignals.Connected;
+        string source = live != null ? "live/" + live.Car.Key : demoOnline ? "demo" : "idle";
         if (source != previousSource)
         {
             engine.Evaluate(0, points, Config.Count, 0, FlashTrigger.Off, 1, seconds);
@@ -175,7 +180,7 @@ public sealed class Runtime : IDisposable
             previousSource = source;
         }
         double rpm = live?.Rpm ?? 0;
-        if (demo)
+        if (demoOnline)
         {
             // A slow climb and a short downshift make every zone and flash interval visible.
             double cycle = (seconds - sweepOrigin + 1.7) % 6;
@@ -184,12 +189,12 @@ public sealed class Runtime : IDisposable
             rpm = Sweep ? floor + (DemoMaximum - floor) * progress : ManualRpm;
         }
         var frame = engine.Evaluate(rpm, points, Config.Count, Config.Offset, Config.Flash, Config.Hz, seconds);
-        RaceSignal? signal = demo ? new RaceSignal(3, RaceFlag.None, SpotterState.Clear, new SessionKey(0, 0, 0, "demo")) : live?.Signal;
+        RaceSignal? signal = demo ? DemoSignals.Read() : live?.Signal;
         int? gear = signal?.Gear;
         var indicators = policy.Evaluate(signal, Config.Indicators, frame, seconds);
         Overlay.Strip.Display(frame);
         Overlay.Strip.DisplayIndicators(indicators);
-        bool animated = live != null || (demo && Sweep) || frame.Flashing || indicators.Accent > 0;
+        bool animated = live != null || (demoOnline && Sweep) || frame.Flashing || indicators.Accent > 0;
         var interval = TimeSpan.FromMilliseconds(animated ? 16 : 180);
         if (update.Interval != interval) update.Interval = interval;
         if (controls?.IsVisible == true)

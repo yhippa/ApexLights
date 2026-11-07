@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using ApexLights.Core;
 
 namespace ApexLights;
@@ -14,6 +15,47 @@ public sealed partial class ControlWindow
         ("Full-course caution", RaceFlag.Caution | RaceFlag.WavingCaution),
         ("Blue", RaceFlag.Blue), ("White", RaceFlag.White), ("Checkered", RaceFlag.Checkered), ("Green", RaceFlag.Green)
     ];
+
+    private void DemoIndicators()
+    {
+        var demo = app.DemoSignals;
+        Heading("Demo indicators");
+        var actions = new WrapPanel();
+        var show = new Button { Content = "Enable all indicators", Margin = new(0, 0, 6, 0) };
+        show.Click += (_, _) =>
+        {
+            S.Indicators.ShowGear = S.Indicators.ShowFlags = S.Indicators.ShowProximity = true;
+            Changed();
+            SetNotice("Gear, flags, and proximity enabled.");
+        };
+        var session = new Button { Content = "New demo session" };
+        session.Click += (_, _) => { demo.NewSession(); app.RefreshDemo(); SetNotice("New demo session started."); };
+        actions.Children.Add(show); actions.Children.Add(session); page.Children.Add(actions);
+        Check("Demo telemetry connected", demo.Connected, value => { demo.SetConnection(value); app.RefreshDemo(); });
+        Range("Demo gear", -1, 12, demo.Gear, 1, n => GearDisplay.Format((int)n),
+            n => { demo.Gear = (int)n; app.RefreshDemo(); });
+        Choices("Alongside", ["Off", "Clear", "Left", "Right", "Both", "Two left", "Two right"], (int)demo.Spotter,
+            i => { demo.Spotter = (SpotterState)i; app.RefreshDemo(); });
+        Heading("Demo flags");
+        var grid = new UniformGrid { Columns = 3 };
+        (string, RaceFlag)[] flags = [
+            ("Green", RaceFlag.Green), ("Yellow", RaceFlag.Yellow), ("Waving yellow", RaceFlag.WavingYellow),
+            ("Blue", RaceFlag.Blue), ("White", RaceFlag.White), ("Checkered", RaceFlag.Checkered),
+            ("Black", RaceFlag.Black), ("Red", RaceFlag.Red), ("Repair", RaceFlag.Repair),
+            ("Full caution", RaceFlag.Caution), ("Waving caution", RaceFlag.WavingCaution)];
+        foreach (var (name, mask) in flags)
+        {
+            var check = new CheckBox { Content = name, IsChecked = (demo.Flags & mask) != 0, Margin = new(0, 3, 0, 3) };
+            Named(check, "Demo flag " + name);
+            check.Click += (_, _) =>
+            {
+                demo.Flags = check.IsChecked == true ? demo.Flags | mask : demo.Flags & ~mask;
+                app.RefreshDemo();
+            };
+            grid.Children.Add(check);
+        }
+        page.Children.Add(grid);
+    }
 
     private void IndicatorsPage()
     {

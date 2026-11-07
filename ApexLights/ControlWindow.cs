@@ -126,9 +126,9 @@ public sealed partial class ControlWindow : Window
             BuildPage();
         }
         string mode = live != null ? "LIVE  /  " + carName : demo ? "DEMO  /  " +
-            (S.Source == SourceMode.Automatic ? "AUTO" : "MANUAL") : "WAITING FOR IRACING";
+            (!app.DemoSignals.Connected ? "DISCONNECTED" : S.Source == SourceMode.Automatic ? "AUTO" : "MANUAL") : "WAITING FOR IRACING";
         if (sourceLabel.Text != mode) sourceLabel.Text = mode;
-        string output = live == null && !demo ? "— RPM" : $"{rpm:N0} RPM" + (gear != null ? $"   G {GearDisplay.Format(gear)}" : "");
+        string output = live == null && (!demo || !app.DemoSignals.Connected) ? "— RPM" : $"{rpm:N0} RPM" + (gear != null ? $"   G {GearDisplay.Format(gear)}" : "");
         if (reading.Text != output) reading.Text = output;
         if (previousWarning != warning) { previousWarning = warning; SetNotice(warning ?? ""); }
         if (tab == 2 && previousScale != S.Scale) BuildPage();
@@ -215,6 +215,7 @@ public sealed partial class ControlWindow : Window
                 app.Sweep = false; sweep.IsChecked = false; app.ManualRpm = value;
             });
             ThresholdEditor(S.Demo, true);
+            DemoIndicators();
         }
         else if (carKey != "")
         {

@@ -77,6 +77,26 @@ internal static partial class Program
         Assert(policy.Evaluate(next, options, default, .5).Flag == 0, "disabled flags");
     }
 
+    private static void DemoCycle()
+    {
+        var demo = new DemoSignals { Gear = -1, Flags = RaceFlag.Blue | RaceFlag.Black, Spotter = SpotterState.TwoRight };
+        var policy = new IndicatorPolicy();
+        var options = Enabled();
+        IndicatorFrame At(double t) => policy.Evaluate(demo.Read(), options, new(12, true, true), t);
+        var oldSession = demo.Read()!.Value.Session;
+        Assert(At(0) == new IndicatorFrame("R", RaceFlag.Black, 0, 2), "shared demo and live policy");
+        demo.SetConnection(false);
+        Assert(At(1) == new IndicatorFrame(""), "disconnect clears all demo indicators");
+        demo.Gear = 0;
+        demo.SetConnection(true);
+        Assert(At(2).Gear == "N" && At(2).Flag == RaceFlag.Black && demo.Read()!.Value.Session != oldSession,
+            "reconnect rearms staged flags");
+        policy.Dismiss();
+        Assert(At(3).Flag == RaceFlag.Blue, "second simultaneous alert");
+        demo.NewSession();
+        Assert(At(4).Flag == RaceFlag.Black, "session turnover with a persistent signal");
+    }
+
     private static void Upgrade() => InTemp(path =>
     {
         File.WriteAllText(path, """{"X":-1400,"Y":233,"Count":10,"Scale":1.36,"Offset":75,"Cars":{"id-146":{"First":5000,"Last":7000,"Shift":6750,"Blink":7300}}}""");
