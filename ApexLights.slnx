@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="ApexLights.Core/ApexLights.Core.csproj"/>
+  <Project Path="ApexLights/ApexLights.csproj"/>
+  <Project Path="ApexLights.Tests/ApexLights.Tests.csproj"/>
+</Solution>
