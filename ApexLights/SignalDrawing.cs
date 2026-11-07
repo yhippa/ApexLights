@@ -8,74 +8,102 @@ namespace ApexLights;
 
 public sealed partial class LedStrip
 {
-    private static readonly Brush SideColor = Solid("#FFD37B");
-    private static readonly Pen SidePen = Freeze(new Pen(SideColor, 2.3));
-    private static readonly Pen FlagEdge = Freeze(new Pen(Solid("#D9E0DE"), .9));
-    private static readonly Brush FlagYellow = Solid("#FFD355"), FlagRed = Solid("#FD5143"),
-        FlagBlue = Solid("#479BFF"), FlagGreen = Solid("#43EC86");
-    private static readonly Geometry Banner = Freeze(Geometry.Parse("M0,0 Q4,-2 8,0 T16,0 L16,11 Q12,13 8,11 T0,11 Z"));
+    private static readonly Brush Amber = Solid("#FFBE46"), Ink = Solid("#10171A"), Chalk = Solid("#F4F7F2");
+    private static readonly Brush FlagYellow = Solid("#FFCF3C"), FlagRed = Solid("#FF6254"),
+        FlagBlue = Solid("#73B9FF"), FlagGreen = Solid("#59E695"), Orange = Solid("#FF9048");
+    private static readonly Pen DarkEdge = Freeze(new Pen(Ink, 1.8)), LightEdge = Freeze(new Pen(Chalk, 2));
+    private static readonly Geometry Chevron = Freeze(Geometry.Parse("M8,0 H16 L8,12 L16,24 H8 L0,12 Z"));
+    private static readonly Geometry Banner = Freeze(Geometry.Parse("M0,0 Q7,-3 14,0 T28,0 V18 Q21,21 14,18 T0,18 Z"));
+    private static readonly Typeface FlagTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
     private FormattedText? flagLabel;
 
-    private void DrawSide(DrawingContext dc, double tip, double mid, int direction, int count)
+    private void DrawSide(DrawingContext dc, StripLayout layout, bool left, int count)
     {
-        for (int i = 0; i < count; i++)
+        if (count == 0) return;
+        double scale = settings.Indicators.SideScale;
+        double width = StripLayout.SideTileWidth, height = StripLayout.SideTileHeight;
+        dc.PushTransform(new TranslateTransform(layout.SideX(left), (layout.Size.Height - height * scale) / 2));
+        dc.PushTransform(new ScaleTransform(scale, scale));
+        var tile = new Rect(0, 0, width, height);
+        if (settings.Indicators.SideStyle == SideStyle.Lamps)
         {
-            double x = tip - direction * i * 7;
-            if (settings.Indicators.SideStyle == SideStyle.Lamps)
-                dc.DrawRoundedRectangle(SideColor, null, new Rect(x - 2, mid - 6, 4, 12), 1.5, 1.5);
-            else
-            {
-                var end = new Point(x, mid);
-                dc.DrawLine(SidePen, new Point(x - direction * 4, mid - 5), end);
-                dc.DrawLine(SidePen, end, new Point(x - direction * 4, mid + 5));
-            }
+            dc.DrawRoundedRectangle(Ink, LightEdge, tile, 5, 5);
+            double lampWidth = count == 2 ? 16 : 36;
+            for (int i = 0; i < count; i++)
+                dc.DrawRoundedRectangle(Amber, null, new Rect(5 + i * 20, 4, lampWidth, height - 8), 3, 3);
         }
+        else
+        {
+            dc.DrawRoundedRectangle(Amber, DarkEdge, tile, 5, 5);
+            if (!left) dc.PushTransform(new MatrixTransform(-1, 0, 0, 1, width, 0));
+            double start = count == 2 ? 5 : 15;
+            for (int i = 0; i < count; i++)
+            {
+                dc.PushTransform(new TranslateTransform(start + i * 20, (height - 24) / 2));
+                dc.DrawGeometry(Ink, null, Chevron);
+                dc.Pop();
+            }
+            if (!left) dc.Pop();
+        }
+        dc.Pop();
+        dc.Pop();
     }
 
-    private static (Brush Fill, string Label) FlagArt(RaceFlag flag) => flag switch
+    private static (Brush Tile, string Label) FlagArt(RaceFlag flag) => flag switch
     {
         RaceFlag.Green => (FlagGreen, "GREEN"), RaceFlag.Red => (FlagRed, "RED"),
-        RaceFlag.Black => (Brushes.Black, "BLACK"), RaceFlag.Repair => (Brushes.Black, "REPAIR"),
-        RaceFlag.Blue => (FlagBlue, "BLUE"), RaceFlag.White => (Brushes.WhiteSmoke, "WHITE"),
-        RaceFlag.Checkered => (Brushes.WhiteSmoke, "FINISH"),
+        RaceFlag.Black => (Chalk, "BLACK"), RaceFlag.Repair => (Orange, "REPAIR"),
+        RaceFlag.Blue => (FlagBlue, "BLUE"), RaceFlag.White => (Chalk, "WHITE"),
+        RaceFlag.Checkered => (Chalk, "FINISH"),
         RaceFlag.WavingYellow => (FlagYellow, "WAVING"), RaceFlag.WavingCaution => (FlagYellow, "FCY WAVE"),
-        RaceFlag.Caution => (FlagYellow, "FCY"), _ => (FlagYellow, "YELLOW")
+        RaceFlag.Caution => (FlagYellow, "CAUTION"), _ => (FlagYellow, "YELLOW")
     };
 
     private void DrawFlag(DrawingContext dc, StripLayout layout)
     {
-        var (fill, label) = FlagArt(indicators.Flag);
-        dc.PushTransform(new TranslateTransform(layout.FlagX + 5, layout.Size.Height / 2 - 6));
-        dc.DrawLine(FlagEdge, new Point(0,-1), new Point(0,17));
-        dc.DrawGeometry(fill, FlagEdge, Banner);
-        if (indicators.Flag == RaceFlag.Checkered)
+        var flag = indicators.Flag;
+        var (fill, label) = FlagArt(flag);
+        double scale = settings.Indicators.FlagScale;
+        bool labeled = settings.Indicators.FlagStyle == FlagStyle.Labeled;
+        double width = layout.FlagWidth / scale;
+        var tile = new Rect(0, 0, width, StripLayout.FlagTileHeight);
+        dc.PushTransform(new TranslateTransform(layout.FlagX, (layout.Size.Height - tile.Height * scale) / 2));
+        dc.PushTransform(new ScaleTransform(scale, scale));
+        dc.DrawRoundedRectangle(fill, DarkEdge, tile, 5, 5);
+        dc.PushTransform(new TranslateTransform(labeled ? 9 : (width - 28) / 2, 8));
+        dc.DrawLine(DarkEdge, new Point(0, -1), new Point(0, 25));
+        Brush fabric = flag is RaceFlag.White or RaceFlag.Checkered ? Chalk : Ink;
+        dc.DrawGeometry(fabric, DarkEdge, Banner);
+        if (flag == RaceFlag.Checkered)
         {
             dc.PushClip(Banner);
-            for (int y = -1; y < 3; y++)
+            for (int y = -1; y < 4; y++)
                 for (int x = 0; x < 4; x++)
-                    if (((x + y) & 1) == 0) dc.DrawRectangle(Brushes.Black, null, new Rect(x * 4, y * 4, 4, 4));
+                    if (((x + y) & 1) == 0) dc.DrawRectangle(Ink, null, new Rect(x * 7, y * 6, 7, 6));
             dc.Pop();
         }
-        if (indicators.Flag == RaceFlag.Repair) dc.DrawEllipse(Brushes.OrangeRed, null, new Point(8,5.5), 3.4, 3.4);
-        if (indicators.Flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution)
+        if (flag == RaceFlag.Repair) dc.DrawEllipse(Orange, null, new Point(14, 9), 5, 5);
+        if (flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution)
         {
-            dc.DrawLine(SidePen, new Point(5,14), new Point(13,14));
-            dc.DrawLine(SidePen, new Point(8,17), new Point(15,17));
+            dc.DrawLine(DarkEdge, new Point(8, 23), new Point(20, 23));
+            dc.DrawLine(DarkEdge, new Point(15, 26), new Point(25, 26));
         }
-        if (settings.Indicators.FlagStyle == FlagStyle.Labeled)
+        dc.Pop();
+        if (labeled)
         {
             double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             if (flagLabel == null || flagLabel.Text != label || flagLabel.PixelsPerDip != dpi)
                 flagLabel = new FormattedText(label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                    new Typeface("Consolas"), 11, Brushes.WhiteSmoke, dpi);
-            dc.DrawText(flagLabel, new Point(22, 6 - flagLabel.Height / 2));
+                    FlagTypeface, 18, Ink, dpi);
+            dc.DrawText(flagLabel, new Point(45, (tile.Height - flagLabel.Height) / 2));
         }
         if (indicators.Accent > 0)
         {
-            dc.PushOpacity(indicators.Accent * .18);
-            dc.DrawRoundedRectangle(null, FlagEdge, new Rect(-3, -4, layout.FlagWidth - 4, 25), 3, 3);
+            dc.PushOpacity(indicators.Accent * .22);
+            dc.DrawRoundedRectangle(null, LightEdge, tile, 5, 5);
             dc.Pop();
         }
+        dc.Pop();
         dc.Pop();
     }
 }

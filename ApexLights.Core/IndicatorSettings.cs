@@ -17,6 +17,8 @@ public sealed class IndicatorSettings
     public FlagLifetime FlagLifetime { get; set; }
     public FlagStyle FlagStyle { get; set; } = FlagStyle.Labeled;
     public SideStyle SideStyle { get; set; }
+    public double FlagScale { get; set; } = 1;
+    public double SideScale { get; set; } = 1;
     public double AlertSeconds { get; set; } = 4;
     public bool AnimateEntry { get; set; } = true;
     public RaceFlag EnabledFlags { get; set; } = IndicatorPolicy.Supported;
@@ -30,12 +32,16 @@ public sealed class IndicatorSettings
         if (!Enum.IsDefined(FlagLifetime)) FlagLifetime = FlagLifetime.Timed;
         if (!Enum.IsDefined(FlagStyle)) FlagStyle = FlagStyle.Labeled;
         if (!Enum.IsDefined(SideStyle)) SideStyle = SideStyle.Chevrons;
+        FlagScale = NormalizeScale(FlagScale);
+        SideScale = NormalizeScale(SideScale);
         AlertSeconds = double.IsFinite(AlertSeconds) ? Math.Clamp(AlertSeconds, 1, 20) : 4;
         EnabledFlags &= IndicatorPolicy.Supported;
         if (!Enum.IsDefined(GearPosition)) GearPosition = GearPosition.Right;
         GearSize = double.IsFinite(GearSize) ? Math.Clamp(GearSize, 14, 40) : 24;
         if (string.IsNullOrWhiteSpace(GearFont) || GearFont.Length > 100) GearFont = "Consolas";
     }
+
+    private static double NormalizeScale(double value) => double.IsFinite(value) ? Math.Clamp(value, .75, 1.75) : 1;
 }
 
 public static class GearDisplay

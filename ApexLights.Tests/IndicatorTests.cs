@@ -112,10 +112,26 @@ internal static partial class Program
         options.GearFont = "Bahnschrift";
         options.GearPosition = GearPosition.Center;
         options.AlertSeconds = 8;
+        options.FlagScale = 1.5;
+        options.SideScale = .8;
         Assert(store.Save(old), "save upgrade");
         options = store.Load().Indicators;
         Assert(options.ShowGear && options.ShowFlags && options.ShowProximity && options.SideStyle == SideStyle.Lamps &&
             options.GearFont == "Bahnschrift" && options.GearPosition == GearPosition.Center && options.AlertSeconds == 8 &&
-            options.EnabledFlags == (RaceFlag.Red | RaceFlag.WavingYellow), "new settings round trip");
+            options.EnabledFlags == (RaceFlag.Red | RaceFlag.WavingYellow) && options.FlagScale == 1.5 &&
+            options.SideScale == .8, "new settings round trip");
+    });
+
+    private static void CueSizeUpgrade() => InTemp(path =>
+    {
+        File.WriteAllText(path, """{"Count":12,"X":-125,"Scale":1.15,"Indicators":{"ShowFlags":true,"ShowProximity":true}}""");
+        var options = new SettingsStore(path).Load();
+        Assert(options.Scale == 1.15 && options.X == -125 && options.Indicators.ShowFlags &&
+            options.Indicators.ShowProximity && options.Indicators.FlagScale == 1 && options.Indicators.SideScale == 1,
+            "1.1 cue size defaults");
+        options.Indicators.FlagScale = double.NaN;
+        options.Indicators.SideScale = 100;
+        options.Normalize();
+        Assert(options.Indicators.FlagScale == 1 && options.Indicators.SideScale == 1.75, "size bounds");
     });
 }

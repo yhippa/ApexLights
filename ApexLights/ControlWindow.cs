@@ -105,7 +105,12 @@ public sealed partial class ControlWindow : Window
         BuildPage();
     }
 
-    public void Configure() { preview.Configure(S); preview.Opacity = S.Opacity; }
+    public void Configure()
+    {
+        preview.Configure(S);
+        preview.Opacity = S.Opacity;
+        preview.Height = Math.Max(39, LedStrip.Footprint(S).Height);
+    }
     public void RefreshSourceSelection() => BuildPage();
     public void DisplayFrame(LightFrame frame, IndicatorFrame indicators)
     {

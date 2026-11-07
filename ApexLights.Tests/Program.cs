@@ -21,6 +21,7 @@ internal static partial class Program
         Run("All seven discrete spotter states activate and clear", Proximity);
         Run("Disconnect, new session and disabled categories reset alert state", SessionChanges);
         Run("1.0 settings migrate with indicators off and round-trip 1.1 options", Upgrade);
+        Run("1.1 keeps enabled cues and adopts bounded independent cue sizes", CueSizeUpgrade);
         Run("Demo feeds real alert logic through disconnect and reconnect", DemoCycle);
         Run("Gear formatting covers reverse, neutral, forward and unavailable", () =>
             Assert(GearDisplay.Format(-1) == "R" && GearDisplay.Format(0) == "N" && GearDisplay.Format(12) == "12"

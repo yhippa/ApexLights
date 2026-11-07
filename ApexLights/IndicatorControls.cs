@@ -72,11 +72,13 @@ public sealed partial class ControlWindow
         Heading("Proximity");
         Check("Show cars alongside", options.ShowProximity, value => { options.ShowProximity = value; Changed(); });
         Choices("Side marks", ["Chevrons", "Lamps"], (int)options.SideStyle, i => { options.SideStyle = (SideStyle)i; Changed(); });
-        Hint("One or two marks show the spotter’s count on each side.");
+        Range("Side cue size", .75, 1.75, options.SideScale, .05, n => $"{n:P0}", n => { options.SideScale = n; Changed(); });
+        Hint("One or two marks show the spotter’s count on each side. The spotter reports lateral overlap only.");
 
         Heading("Racing flags");
         Check("Show racing flags", options.ShowFlags, value => { options.ShowFlags = value; Changed(); });
         Choices("Display", ["Symbol", "With label"], (int)options.FlagStyle, i => { options.FlagStyle = (FlagStyle)i; Changed(); });
+        Range("Flag size", .75, 1.75, options.FlagScale, .05, n => $"{n:P0}", n => { options.FlagScale = n; Changed(); });
         Choices("Dismissal", ["Timed", "Until clear"], (int)options.FlagLifetime, i => { options.FlagLifetime = (FlagLifetime)i; Changed(); });
         Range("Alert duration", 1, 20, options.AlertSeconds, 1, n => $"{n:0} s", n => { options.AlertSeconds = n; Changed(); });
         Check("Accent a newly raised flag", options.AnimateEntry, value => { options.AnimateEntry = value; Changed(); });
