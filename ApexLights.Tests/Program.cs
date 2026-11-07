@@ -10,12 +10,17 @@ using ApexLights.Core;
 namespace ApexLights.Tests;
 
 // Run with dotnet run --project ApexLights.Tests. A failure returns a nonzero exit code.
-internal static class Program
+internal static partial class Program
 {
     private static readonly Thresholds Points = new(5000, 7000, 6750, 7300);
     private static int passed, failed;
     private static void Main(string[] args)
     {
+        Run("Simultaneous alerts preserve gear and both sides during a shift", Priority);
+        Run("Flags expire, clear, dismiss and re-arm by edge", Transitions);
+        Run("All seven discrete spotter states activate and clear", Proximity);
+        Run("Disconnect, new session and disabled categories reset alert state", SessionChanges);
+        Run("1.0 settings migrate with indicators off and round-trip 1.1 options", Upgrade);
         Run("Gear formatting covers reverse, neutral, forward and unavailable", () =>
             Assert(GearDisplay.Format(-1) == "R" && GearDisplay.Format(0) == "N" && GearDisplay.Format(12) == "12"
                 && GearDisplay.Format(null) == "" && GearDisplay.Format(31) == "", "gear label"));

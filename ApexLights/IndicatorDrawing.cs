@@ -11,6 +11,9 @@ internal readonly struct StripLayout
     private readonly Settings s;
     private readonly int gearIndex;
     private readonly double gearWidth;
+    private readonly double sideWidth;
+    public double FlagWidth { get; }
+    public double FlagX => Size.Width - 9 - sideWidth - FlagWidth;
     public double LensHeight { get; }
     public Size Size { get; }
 
@@ -18,15 +21,17 @@ internal readonly struct StripLayout
     {
         s = settings;
         var options = s.Indicators;
+        sideWidth = options.ShowProximity ? 19 : 0;
+        FlagWidth = options.ShowFlags ? (options.FlagStyle == FlagStyle.Labeled ? 84 : 28) : 0;
         gearIndex = options.GearPosition switch { GearPosition.Left => 0, GearPosition.Center => (s.Count + 1) / 2, _ => s.Count };
         gearWidth = options.ShowGear ? options.GearSize * 1.65 + s.Gap : 0;
         LensHeight = s.LensSize * (s.Shape == LensShape.Blade ? .72 : 1);
-        Size = new(18 + s.Count * s.LensSize + (s.Count - 1) * s.Gap + gearWidth,
+        Size = new(18 + s.Count * s.LensSize + (s.Count - 1) * s.Gap + gearWidth + FlagWidth + 2 * sideWidth,
             Math.Max(16 + LensHeight, options.ShowGear ? options.GearSize * 1.45 + 4 : 0));
     }
 
-    public double LensX(int i) => 9 + i * (s.LensSize + s.Gap) + (i >= gearIndex ? gearWidth : 0);
-    public double GearCenter => 9 + gearIndex * (s.LensSize + s.Gap) + (gearWidth - s.Gap) / 2;
+    public double LensX(int i) => 9 + sideWidth + i * (s.LensSize + s.Gap) + (i >= gearIndex ? gearWidth : 0);
+    public double GearCenter => 9 + sideWidth + gearIndex * (s.LensSize + s.Gap) + (gearWidth - s.Gap) / 2;
 }
 
 public sealed partial class LedStrip
@@ -43,6 +48,12 @@ public sealed partial class LedStrip
 
     private void DrawIndicators(DrawingContext dc, StripLayout layout)
     {
+        if (settings.Indicators.ShowProximity)
+        {
+            DrawSide(dc, 10, layout.Size.Height / 2, -1, indicators.Left);
+            DrawSide(dc, layout.Size.Width - 10, layout.Size.Height / 2, 1, indicators.Right);
+        }
+        if (indicators.Flag != RaceFlag.None && settings.Indicators.ShowFlags) DrawFlag(dc, layout);
         if (!settings.Indicators.ShowGear || string.IsNullOrEmpty(indicators.Gear)) return;
         var options = settings.Indicators;
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;

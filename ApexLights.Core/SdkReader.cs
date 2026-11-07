@@ -19,7 +19,7 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
     private int? knownRevision;
     private int variables, table, rowSize, rpmOffset = -1, gearOffset = -1;
     private static long nextConnection;
-    private readonly long connection = Interlocked.Increment(ref nextConnection);
+    private long connection = Interlocked.Increment(ref nextConnection);
     private int flagsOffset, spotterOffset, uniqueOffset, numberOffset;
     private CarSession? session;
     private int? lastTick;
@@ -71,11 +71,13 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
         var flags = (RaceFlag)(uint)(Channel(flagsOffset) ?? 0);
         int side = Channel(spotterOffset) ?? 0;
         var spotter = side is >= 0 and <= 6 ? (SpotterState)side : SpotterState.Off;
-        var key = new SessionKey(connection, Channel(uniqueOffset), Channel(numberOffset), session!.Key);
+        int? uniqueId = Channel(uniqueOffset), sessionNum = Channel(numberOffset);
         Thread.MemoryBarrier();
         if (Int(best) != tick || Int(12) != revision || (Int(4) & 1) == 0) return null;
         if (!float.IsFinite(rpm) || rpm is < 0 or > 100000)
             throw new InvalidDataException("Invalid RPM.");
+        if (lastTick.HasValue && tick < lastTick.Value) connection = Interlocked.Increment(ref nextConnection);
+        var key = new SessionKey(connection, uniqueId, sessionNum, session!.Key);
         lastTick = tick;
         return new(rpm, tick, session, new(gear is >= -1 and <= 30 ? gear : null, flags, spotter, key));
     }

@@ -38,6 +38,7 @@ public sealed class Runtime : IDisposable
     private readonly Application application;
     private readonly SettingsStore store;
     private readonly ShiftLights engine = new();
+    private readonly IndicatorPolicy policy = new();
     private readonly DispatcherTimer update = new(DispatcherPriority.Render), save = new();
     private readonly Stopwatch time = Stopwatch.StartNew();
     private readonly bool forceOpen;
@@ -87,6 +88,7 @@ public sealed class Runtime : IDisposable
         menu.Items.Add(editItem);
         menu.Items.Add("Demo Mode", null, (_, _) => { SetSource(SourceMode.Demo); OpenSettings(); });
         menu.Items.Add("Use iRacing", null, (_, _) => SetSource(SourceMode.Live));
+        menu.Items.Add("Dismiss current flag", null, (_, _) => DismissFlag());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit ApexLights", null, (_, _) => application.Shutdown());
         using var resource = Application.GetResourceStream(new Uri("pack://application:,,,/ApexLights;component/apex.ico"))!.Stream;
@@ -127,6 +129,8 @@ public sealed class Runtime : IDisposable
         controls?.RefreshSourceSelection();
     }
 
+    public void DismissFlag() { policy.Dismiss(); Tick(); }
+
     private void UpdateFeed()
     {
         if (Config.Source != SourceMode.Demo) feed ??= new();
@@ -166,6 +170,7 @@ public sealed class Runtime : IDisposable
         if (source != previousSource)
         {
             engine.Evaluate(0, points, Config.Count, 0, FlashTrigger.Off, 1, seconds);
+            policy.Reset();
             sweepOrigin = seconds;
             previousSource = source;
         }
@@ -179,11 +184,12 @@ public sealed class Runtime : IDisposable
             rpm = Sweep ? floor + (DemoMaximum - floor) * progress : ManualRpm;
         }
         var frame = engine.Evaluate(rpm, points, Config.Count, Config.Offset, Config.Flash, Config.Hz, seconds);
-        int? gear = demo ? 3 : live?.Gear;
-        var indicators = new IndicatorFrame(Config.Indicators.ShowGear ? GearDisplay.Format(gear) : "");
+        RaceSignal? signal = demo ? new RaceSignal(3, RaceFlag.None, SpotterState.Clear, new SessionKey(0, 0, 0, "demo")) : live?.Signal;
+        int? gear = signal?.Gear;
+        var indicators = policy.Evaluate(signal, Config.Indicators, frame, seconds);
         Overlay.Strip.Display(frame);
         Overlay.Strip.DisplayIndicators(indicators);
-        bool animated = live != null || (demo && Sweep) || frame.Flashing;
+        bool animated = live != null || (demo && Sweep) || frame.Flashing || indicators.Accent > 0;
         var interval = TimeSpan.FromMilliseconds(animated ? 16 : 180);
         if (update.Interval != interval) update.Interval = interval;
         if (controls?.IsVisible == true)
