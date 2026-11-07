@@ -12,25 +12,41 @@ A standalone Windows 11 x64 shift-light strip for iRacing. Download **ApexLights
 
 ## Tune the strip
 
-**Appearance** controls the segment count, shape, dimensions, spacing, four zone colors, fill direction, intensity, opacity, and housing. Disable **Dark strip housing** for transparent space between lenses. **Placement** includes scale, a reset to the primary monitor, and the option to start with settings hidden. Positions use physical desktop coordinates and sizes scale with monitor DPI.
+**Appearance** controls the segment count, shape, dimensions, spacing, four zone colors, fill direction, intensity, opacity, and housing. Use **Inactive LEDs** to set the unlit lens brightness, including fully dark at zero. Disable **Dark strip housing** for transparent space between lenses. **Placement** includes scale, a reset to the primary monitor, and the option to start with settings hidden. Positions use physical desktop coordinates and sizes scale with monitor DPI.
 
 The first LED activates at **First LED**. Progression is evenly spaced up to **Last LED**. Flashing starts at **Shift RPM** by default, even on cars whose shift cue comes before the last LED. Choose **Blink RPM** to follow the car's blink cue or **Off** for steady progression. The RPM offset moves the entire curve earlier or later. Flash frequency is in complete cycles per second.
 
 When a session is connected, the Telemetry tab shows the current car's values. Use **Save car override** to retain a profile for that car and **Use car defaults** to remove it. Missing or inconsistent fields are repaired individually using the car's redline or its available shift values. Settings are saved to `%LOCALAPPDATA%\ApexLights\settings.json`.
 
-## Race awareness in 1.1
+## Race awareness
 
-Open **Indicators** to enable gear, racing flags, or proximity individually. A 1.0 settings file opens with all three disabled and retains its placement, scale, colors and car overrides. Exit the previous copy from the tray before starting 1.1.
+Open **Indicators** to enable gear, racing flags, or proximity individually. A 1.0 settings file opens with all three disabled and retains its placement, scale, colors and car overrides. Exit the previous copy from the tray before launching a newer build.
 
 - **Gear** shows R, N, or the forward gear. Choose its typeface, size and left, right, or center position. Center placement opens a gap between LED groups and keeps every emitter visible.
-- **Flags** share one slot. Red and black take precedence, followed by repair, waving and steady cautions, then blue, checkered, white and green. Select individual categories and choose a symbol or a labeled flag. A timed alert expires from its rising edge. **Until clear** keeps it visible while raised. **Dismiss current flag** in settings or the tray silences that occurrence until it clears or the session changes. RPM flashing takes precedence over the optional flag entry animation.
+- **Flags** share one slot. Red and black take precedence, followed by repair, waving and steady cautions, then blue, checkered, white and green. Select individual categories and choose a symbol or a labeled flag. Timed notices and cautions expire from their rising edge. A still-raised critical flag that was waiting behind another flag starts its timer when first displayed. **Until clear** keeps it visible while raised. **Dismiss current flag** in settings or the tray silences that occurrence until it clears or the session changes. RPM flashing takes precedence over the optional flag entry animation.
 - **Proximity** shows one or two chevrons or lamps at the corresponding edge. Both edges can light together. These are the SDK spotter’s discrete alongside reports. Clear, off, missing and unknown states display no marks.
 
-**Visibility in 1.1.1.** Active proximity cues occupy a full amber block at the corresponding edge, and active flags use a high-contrast tile. In **Indicators**, adjust **Side cue size** and **Flag size** independently from 75% to 175%. The strip reserves room for enabled cues, so its LEDs hold their size and position when alerts come and go. For a quick size check in Demo Mode, hold a yellow flag and select **Both**, then try the settings from your driving position.
+**Visibility.** Active proximity cues occupy a full amber block at the corresponding edge, and active flags use a high-contrast tile. In **Indicators**, adjust **Side cue size** and **Flag size** independently from 75% to 175%. The strip reserves room for enabled cues, so its LEDs hold their size and position when alerts come and go. For a quick size check in Demo Mode, hold a yellow flag and select **Both**, then try the settings from your driving position.
 
 The SDK spotter gives the side and vehicle count. Its report contains neither the identity of the overlapping car nor its longitudinal offset. Per-car lap progress cannot reliably identify which car triggered a particular side warning in traffic, so the chevrons point sideways. [SDK spotter enum](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_defines.h)
 
-**Try a simultaneous alert.** Choose **Telemetry → Demo**, scroll to **Demo indicators**, and click **Enable all indicators**. Set **Alongside** to **Both**, select **Waving yellow** and **Black**, and leave the RPM sweep running. Black takes the flag slot, both side marks remain visible, and all shift lights keep working. Clear Black to see the yellow if its timer is still active. Use **Demo telemetry connected** to disconnect and reconnect, or **New demo session** to re-arm held flags. These controls exercise the same policy and drawing surface as live telemetry.
+**Status emphasis.** Green, white and checkered start as quiet notices. After 1.5 seconds, a held notice contracts to its icon within the reserved slot. Yellow and blue show a colored flag field and a readable caption. Red, black and repair use the full status tile. Flags clear as soon as their condition ends. One or two steady marks on each side show the SDK spotter count. Only the RPM strip flashes.
+
+## Test a driving situation
+
+Under **Telemetry → Demo → Driving scenarios**, click any scenario. Each press stages a fresh occurrence. All scenarios use the current thresholds, RPM offset, styles and priority logic.
+
+| Scenario | What to look for |
+|---|---|
+| Normal driving | Mid-range RPM, fourth gear and a green notice that settles. |
+| Approach shift | A sweep starts just below the selected shift cue and crosses it. |
+| Side by side | A single steady marker at the left edge. |
+| Local yellow | Waving yellow in the right status slot. |
+| Repair required | Black flag with an orange disc and the REPAIR label. |
+| Competing alerts | RPM at the shift cue, both sides occupied, with black ahead of repair and waving yellow. |
+| Return to normal | Clear all staged alerts, restore configured indicator visibility and return to the saved scale. |
+
+The scenarios temporarily show all indicator categories. **Test scale** previews 75%, 100% or 150% on the actual strip. Choose **Saved** to return to your configured size. Leaving Demo Mode also restores your display preferences. Use the manual controls below the scenarios for gears, individual flags, two cars on either side, and disconnect/reconnect.
 
 ## Build and test
 
