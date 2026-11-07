@@ -15,6 +15,7 @@ namespace ApexLights;
 public sealed class Overlay : Window
 {
     private readonly Settings settings;
+    private Settings appearance;
     private readonly Action changed, toggle;
     private readonly Grid root = new();
     private readonly Border outline = new() { CornerRadius = new(7), IsHitTestVisible = false };
@@ -25,11 +26,13 @@ public sealed class Overlay : Window
     private double resizeOrigin, resizeDelta;
     public LedStrip Strip { get; } = new();
     public bool Editing { get; private set; }
+    public double? PreviewScale { get; private set; }
     public string? Shortcut { get; private set; }
 
     public Overlay(Settings settings, Action changed, Action toggle)
     {
         this.settings = settings;
+        appearance = settings;
         this.changed = changed;
         this.toggle = toggle;
         Title = "ApexLights Strip";
@@ -51,7 +54,8 @@ public sealed class Overlay : Window
         grip.DragDelta += (_, e) =>
         {
             resizeDelta += e.HorizontalChange;
-            settings.Scale = Math.Clamp((resizeOrigin + resizeDelta) / LedStrip.Footprint(settings).Width, 0.5, 2.5);
+            PreviewScale = null;
+            settings.Scale = Math.Clamp((resizeOrigin + resizeDelta) / LedStrip.Footprint(appearance).Width, 0.5, 2.5);
             ApplySize();
             changed();
         };
@@ -77,13 +81,21 @@ public sealed class Overlay : Window
         ApplySize();
     }
 
-    public void ApplySize()
+    public void ApplySize(Settings? display = null)
     {
-        Size size = LedStrip.Footprint(settings);
-        Width = size.Width * settings.Scale;
-        Height = size.Height * settings.Scale;
+        if (display != null) appearance = display;
+        Size size = LedStrip.Footprint(appearance);
+        Width = size.Width * (PreviewScale ?? settings.Scale);
+        Height = size.Height * (PreviewScale ?? settings.Scale);
         Opacity = settings.Opacity;
-        Strip.Configure(settings);
+        Strip.Configure(appearance);
+    }
+
+    public void PreviewAtScale(double? scale)
+    {
+        if (PreviewScale == scale) return;
+        PreviewScale = scale;
+        ApplySize();
     }
 
     public void SetEdit(bool edit)

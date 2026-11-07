@@ -23,6 +23,10 @@ internal static partial class Program
         Run("1.0 settings migrate with indicators off and round-trip 1.1 options", Upgrade);
         Run("1.1 keeps enabled cues and adopts bounded independent cue sizes", CueSizeUpgrade);
         Run("Demo feeds real alert logic through disconnect and reconnect", DemoCycle);
+        Run("Critical alerts blocked by a higher flag get display time only while still raised", PendingCritical);
+        Run("Informational status settles once and clears on edge or session change", QuietNotice);
+        Run("All driving scenarios reconnect, apply thresholds and clear previous inputs", ScenarioInputs);
+        Run("Scenario visibility and inactive LED brightness preserve the saved profile", ScenarioSettings);
         Run("Gear formatting covers reverse, neutral, forward and unavailable", () =>
             Assert(GearDisplay.Format(-1) == "R" && GearDisplay.Format(0) == "N" && GearDisplay.Format(12) == "12"
                 && GearDisplay.Format(null) == "" && GearDisplay.Format(31) == "", "gear label"));

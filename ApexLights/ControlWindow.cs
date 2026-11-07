@@ -107,9 +107,9 @@ public sealed partial class ControlWindow : Window
 
     public void Configure()
     {
-        preview.Configure(S);
+        preview.Configure(app.Appearance);
         preview.Opacity = S.Opacity;
-        preview.Height = Math.Max(39, LedStrip.Footprint(S).Height);
+        preview.Height = Math.Max(39, LedStrip.Footprint(app.Appearance).Height);
     }
     public void RefreshSourceSelection() => BuildPage();
     public void DisplayFrame(LightFrame frame, IndicatorFrame indicators)
@@ -213,6 +213,7 @@ public sealed partial class ControlWindow : Window
         if (S.Source == SourceMode.Automatic) Hint("Runs a demo sweep until the first live session connects.");
         if (demo)
         {
+            DemoScenarios();
             Heading("Demo controls");
             var sweep = Check("Sweep RPM automatically", app.Sweep, value => app.Sweep = value);
             Range("Manual RPM", 0, app.DemoMaximum, app.ManualRpm, 1, v => $"{v:N0}", value =>
@@ -297,6 +298,7 @@ public sealed partial class ControlWindow : Window
         Range("Lens size", 12, 44, S.LensSize, 1, v => $"{v:0} DIP", v => { S.LensSize = v; Changed(); });
         Range("Spacing", 1, 14, S.Gap, 1, v => $"{v:0} DIP", v => { S.Gap = v; Changed(); });
         Range("Brightness", .1, 1, S.Brightness, .01, v => $"{v:P0}", v => { S.Brightness = v; Changed(); });
+        Range("Inactive LEDs", 0, 1, S.InactiveBrightness, .01, v => $"{v:P0}", v => { S.InactiveBrightness = v; Changed(); });
         Range("Opacity", .15, 1, S.Opacity, .01, v => $"{v:P0}", v => { S.Opacity = v; Changed(); });
         Check("Dark strip housing", S.DarkHousing, v => { S.DarkHousing = v; Changed(); });
         Heading("Shift cue");
@@ -310,7 +312,10 @@ public sealed partial class ControlWindow : Window
         Heading("Overlay placement");
         Hint("Enter Edit Mode to drag the strip. Drag its lower-right grip to resize.");
         previousScale = S.Scale;
-        Range("Scale", .5, 2.5, S.Scale, .01, v => $"{v:P0}", v => { S.Scale = v; previousScale = v; Changed(); });
+        Range("Scale", .5, 2.5, S.Scale, .01, v => $"{v:P0}", v =>
+        {
+            app.Overlay.PreviewAtScale(null); S.Scale = v; previousScale = v; Changed();
+        });
         var center = new Button { Content = "Center on primary display", HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 6, 0, 10) };
         center.Click += (_, _) => app.Overlay.Place(null, null);
         page.Children.Add(center);

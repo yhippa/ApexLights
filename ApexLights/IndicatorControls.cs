@@ -16,6 +16,28 @@ public sealed partial class ControlWindow
         ("Blue", RaceFlag.Blue), ("White", RaceFlag.White), ("Checkered", RaceFlag.Checkered), ("Green", RaceFlag.Green)
     ];
 
+    private void DemoScenarios()
+    {
+        Heading("Driving scenarios");
+        var buttons = new WrapPanel();
+        (string, DemoScenario)[] scenes = [
+            ("Normal driving", DemoScenario.Normal), ("Approach shift", DemoScenario.ApproachShift),
+            ("Side by side", DemoScenario.SideBySide), ("Local yellow", DemoScenario.LocalYellow),
+            ("Repair required", DemoScenario.Repair), ("Competing alerts", DemoScenario.Competing),
+            ("Return to normal", DemoScenario.ReturnToNormal)];
+        foreach (var (label, scenario) in scenes)
+        {
+            var button = new Button { Content = label, Margin = new(0, 0, 5, 5), Padding = new(10, 5, 10, 5) };
+            button.Click += (_, _) => app.ApplyScenario(scenario);
+            buttons.Children.Add(button);
+        }
+        page.Children.Add(buttons);
+        Hint("Scenarios preview all indicators. Return to normal clears alerts and restores your indicator choices.");
+        double?[] scales = [null, .75, 1, 1.5];
+        Choices("Test scale", ["Saved", "75%", "100%", "150%"], Array.IndexOf(scales, app.Overlay.PreviewScale),
+            i => app.Overlay.PreviewAtScale(scales[i]));
+    }
+
     private void DemoIndicators()
     {
         var demo = app.DemoSignals;

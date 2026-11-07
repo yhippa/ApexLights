@@ -122,6 +122,82 @@ internal static partial class Program
             options.SideScale == .8, "new settings round trip");
     });
 
+    private static void PendingCritical()
+    {
+        var policy = new IndicatorPolicy();
+        var options = Enabled();
+        options.AlertSeconds = 2;
+        IndicatorFrame At(RaceFlag flags, double t) => policy.Evaluate(Signal(flags), options, default, t);
+        var all = RaceFlag.Red | RaceFlag.Black | RaceFlag.Repair | RaceFlag.Blue;
+        Assert(At(all, 0).Flag == RaceFlag.Red, "red first");
+        Assert(At(all, 2).Flag == RaceFlag.Black && At(all, 3.9).Flag == RaceFlag.Black, "black gets full slot");
+        Assert(At(all & ~RaceFlag.Repair, 4).Flag == 0, "cleared queued repair and expired blue stay hidden");
+        Assert(At(all, 4.1).Flag == RaceFlag.Repair, "new repair edge");
+        Assert(At(RaceFlag.Red, 4.2).Flag == 0, "held red never restarts");
+    }
+
+    private static void QuietNotice()
+    {
+        var policy = new IndicatorPolicy();
+        var options = Enabled();
+        options.FlagLifetime = FlagLifetime.UntilClear;
+        IndicatorFrame At(RaceFlag flag, double t, int session = 1) =>
+            policy.Evaluate(Signal(flag, SpotterState.Both, session), options, default, t);
+        Assert(At(RaceFlag.Green, 0).Accent == 0 && !At(RaceFlag.Green, 1.49).NoticeSettled, "quiet entry");
+        Assert(At(RaceFlag.Green, 1.5).NoticeSettled && At(RaceFlag.Green, 100).NoticeSettled, "persistent compact notice");
+        Assert(At(RaceFlag.Blue | RaceFlag.Green, 101).Flag == RaceFlag.Blue, "caution preempts notice");
+        Assert(At(RaceFlag.Green, 102).NoticeSettled, "return without new entry");
+        Assert(!At(RaceFlag.Green, 103, 2).NoticeSettled && At(0, 104, 2).Flag == 0, "new session then clear");
+    }
+
+    private static void ScenarioInputs()
+    {
+        var demo = new DemoSignals();
+        var options = Enabled();
+        var policy = new IndicatorPolicy();
+        DemoDrive Stage(DemoScenario scene) => demo.Apply(scene, Points, 125, FlashTrigger.Blink);
+        demo.SetConnection(false);
+        Stage(DemoScenario.Normal);
+        Assert(demo.Connected && demo.Gear == 4 && demo.Flags == RaceFlag.Green, "normal driving reconnects");
+        var drive = Stage(DemoScenario.ApproachShift);
+        Assert(drive.Sweep && drive.Rpm < Points.Blink + 125 && drive.Rpm > Points.First + 125, "approach uses selected cue");
+        Stage(DemoScenario.SideBySide);
+        Assert(demo.Spotter == SpotterState.Left && demo.Flags == 0, "side by side");
+        Stage(DemoScenario.LocalYellow);
+        Assert(demo.Spotter == SpotterState.Clear && demo.Flags == RaceFlag.WavingYellow, "local yellow");
+        Stage(DemoScenario.Repair);
+        Assert(demo.Flags == RaceFlag.Repair && demo.Gear == 2, "repair");
+        drive = Stage(DemoScenario.Competing);
+        var lights = new ShiftLights().Evaluate(drive.Rpm, Points, 12, 125, FlashTrigger.Blink, 4, 10);
+        var frame = policy.Evaluate(demo.Read(), options, lights, 10);
+        Assert(lights == new LightFrame(12, true, true) && frame == new IndicatorFrame("5", RaceFlag.Black, 1, 1),
+            "all LEDs flash independently of black flag and bilateral overlap");
+        policy.Dismiss();
+        Assert(policy.Evaluate(demo.Read(), options, lights, 11).Flag == RaceFlag.Repair, "next critical");
+        Stage(DemoScenario.Competing);
+        Assert(policy.Evaluate(demo.Read(), options, lights, 12).Flag == RaceFlag.Black, "repeat starts a fresh occurrence");
+        Stage(DemoScenario.ReturnToNormal);
+        Assert(policy.Evaluate(demo.Read(), options, default, 13) == new IndicatorFrame("4"), "return clears all warnings");
+    }
+
+    private static void ScenarioSettings() => InTemp(path =>
+    {
+        File.WriteAllText(path, """{"Scale":1.3,"X":-1020,"Y":45,"Indicators":{"ShowGear":true,"EnabledFlags":"Yellow","SideScale":1.4}}""");
+        var store = new SettingsStore(path);
+        var saved = store.Load();
+        var preview = saved.PreviewAllIndicators();
+        Assert(preview.Indicators.ShowProximity && preview.Indicators.ShowFlags &&
+            preview.Indicators.EnabledFlags == IndicatorPolicy.Supported && preview.Indicators.SideScale == 1.4, "preview all");
+        Assert(saved.Indicators.EnabledFlags == RaceFlag.Yellow && !saved.Indicators.ShowFlags &&
+            !saved.Indicators.ShowProximity && saved.X == -1020 && saved.Scale == 1.3 && saved.InactiveBrightness == .22,
+            "saved demo and overlay preferences retained");
+        saved.InactiveBrightness = .4;
+        Assert(store.Save(saved) && store.Load().InactiveBrightness == .4, "inactive brightness round trip");
+        saved.InactiveBrightness = double.PositiveInfinity;
+        saved.Normalize();
+        Assert(saved.InactiveBrightness == .22, "invalid brightness repaired");
+    });
+
     private static void CueSizeUpgrade() => InTemp(path =>
     {
         File.WriteAllText(path, """{"Count":12,"X":-125,"Scale":1.15,"Indicators":{"ShowFlags":true,"ShowProximity":true}}""");
