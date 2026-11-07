@@ -18,6 +18,16 @@ The first LED activates at **First LED**. Progression is evenly spaced up to **L
 
 When a session is connected, the Telemetry tab shows the current car's values. Use **Save car override** to retain a profile for that car and **Use car defaults** to remove it. Missing or inconsistent fields are repaired individually using the car's redline or its available shift values. Settings are saved to `%LOCALAPPDATA%\ApexLights\settings.json`.
 
+## Race awareness in 1.1
+
+Open **Indicators** to enable gear, racing flags, or proximity individually. A 1.0 settings file opens with all three disabled and retains its placement, scale, colors and car overrides. Exit the previous copy from the tray before starting 1.1.
+
+- **Gear** shows R, N, or the forward gear. Choose its typeface, size and left, right, or center position. Center placement opens a gap between LED groups and keeps every emitter visible.
+- **Flags** share one slot. Red and black take precedence, followed by repair, waving and steady cautions, then blue, checkered, white and green. Select individual categories and choose a symbol or a labeled flag. A timed alert expires from its rising edge. **Until clear** keeps it visible while raised. **Dismiss current flag** in settings or the tray silences that occurrence until it clears or the session changes. RPM flashing takes precedence over the optional flag entry animation.
+- **Proximity** shows one or two chevrons or lamps at the corresponding edge. Both edges can light together. These are the SDK spotter’s discrete alongside reports. Clear, off, missing and unknown states display no marks.
+
+**Try a simultaneous alert.** Choose **Telemetry → Demo**, scroll to **Demo indicators**, and click **Enable all indicators**. Set **Alongside** to **Both**, select **Waving yellow** and **Black**, and leave the RPM sweep running. Black takes the flag slot, both side marks remain visible, and all shift lights keep working. Clear Black to see the yellow if its timer is still active. Use **Demo telemetry connected** to disconnect and reconnect, or **New demo session** to re-arm held flags. These controls exercise the same policy and drawing surface as live telemetry.
+
 ## Build and test
 
 Install the **.NET 10 x64 SDK** on the development machine. Run these commands in PowerShell from the repository root.
@@ -42,6 +52,8 @@ dotnet publish ApexLights/ApexLights.csproj -c Release -r win-x64 --self-contain
 ## Implementation
 
 `ApexLights.Core` contains SDK acquisition, shift-light evaluation, and JSON storage. `ApexLights` contains the WPF application, native overlay window, tray, demo source, and a retained drawing surface shared by the strip and its settings preview.
+
+The existing SDK reader samples optional `Gear`, `SessionFlags` and `CarLeftRight` channels from the same tick as RPM. A missing or invalid optional channel clears just its indication. `IndicatorPolicy` tracks flag edges, expiry, dismissal and session identity. It emits a compact frame for the gear, flag and side regions alongside the original shift-light frame. A new SDK attachment, car or session re-arms alerts. Demo Mode supplies the same signal type using local controls.
 
 The reader opens the SDK mapping with read access and waits on the data-valid event with synchronization rights. It resolves typed RPM and gear offsets from the variable descriptors, checks bounds, and verifies the buffer tick after sampling. A session revision refreshes driver identity and car-specific thresholds. Verified against the [iRacing SDK header](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_defines.h), [SDK reader](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_utils.cpp), and the [SDK telemetry field list](https://us.v-cdn.net/6034148/uploads/8DD84H30FIC8/telemetry-11-23-15.pdf).
 
