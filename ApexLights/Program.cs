@@ -141,13 +141,15 @@ public sealed class Runtime : IDisposable
 
     public void ApplyScenario(DemoScenario scenario)
     {
+        demoAppearance = scenario == DemoScenario.ReturnToNormal ? null : Config.PreviewAllIndicators();
+        DemoSignals.BeginScenario();
+        UpdateAppearance();
+        RefreshDemo(); // Establish a known quiet sample before staging an actual rising edge.
         var drive = DemoSignals.Apply(scenario, Config.Demo, Config.Offset, Config.Flash);
         ManualRpm = Math.Min(drive.Rpm, DemoMaximum);
         Sweep = drive.Sweep;
         sweepFromRpm = drive.Sweep ? ManualRpm : null;
-        demoAppearance = scenario == DemoScenario.ReturnToNormal ? null : Config.PreviewAllIndicators();
         if (scenario == DemoScenario.ReturnToNormal) Overlay.PreviewAtScale(null);
-        UpdateAppearance();
         RefreshDemo();
         controls?.RefreshSourceSelection();
     }

@@ -10,6 +10,10 @@ public sealed partial class LedStrip
 {
     private static readonly Brush Amber = Solid("#FFBE46"), Ink = Solid("#10171A"), Chalk = Solid("#F4F7F2");
     private static readonly Brush StatusWell = Solid("#202629");
+    private static readonly Brush IdleWell = Solid("#121719"), GearPod = Solid("#191E21"), Operational = Solid("#ACDED6");
+    private static readonly Pen WellEdge = Freeze(new Pen(Solid("#343B3D"), .85));
+    private static readonly Pen GaugePen = Freeze(new Pen(Operational, 2.4));
+    private static readonly Geometry Gauge = Freeze(Geometry.Parse("M2,20 A12,12 0 0 1 26,20 M14,20 L21,11 M3,20 L7,20 M21,20 L25,20"));
     private static readonly Brush FlagYellow = Solid("#FFCF3C"), FlagRed = Solid("#FF6254"),
         FlagBlue = Solid("#73B9FF"), FlagGreen = Solid("#59E695"), Orange = Solid("#FF9048");
     private static readonly Pen DarkEdge = Freeze(new Pen(Ink, 1.8)), LightEdge = Freeze(new Pen(Chalk, 2));
@@ -63,21 +67,43 @@ public sealed partial class LedStrip
     private void DrawFlag(DrawingContext dc, StripLayout layout)
     {
         var flag = indicators.Flag;
-        var (fill, label) = FlagArt(flag);
+        var (fill, label) = indicators.Limiter ? (Operational, "LIMITER") : FlagArt(flag);
         double scale = settings.Indicators.FlagScale;
         var prominence = IndicatorPolicy.Prominence(flag);
-        bool notice = prominence == FlagProminence.Informational;
+        bool notice = prominence is FlagProminence.Informational or FlagProminence.Celebration;
         bool critical = prominence == FlagProminence.Critical;
-        bool labeled = settings.Indicators.FlagStyle == FlagStyle.Labeled && !indicators.NoticeSettled;
+        bool labeled = settings.Indicators.FlagStyle == FlagStyle.Labeled;
         double width = layout.FlagWidth / scale;
-        double faceWidth = indicators.NoticeSettled ? Math.Min(46, width) : width;
-        var tile = new Rect(0, 0, faceWidth, StripLayout.FlagTileHeight);
+        var tile = new Rect(0, 0, width, StripLayout.FlagTileHeight);
         dc.PushTransform(new TranslateTransform(layout.FlagX, (layout.Size.Height - tile.Height * scale) / 2));
         dc.PushTransform(new ScaleTransform(scale, scale));
-        dc.DrawRoundedRectangle(critical ? fill : StatusWell, null, tile, 4, 4);
+        if (flag == RaceFlag.None && !indicators.Limiter)
+        {
+            dc.DrawRoundedRectangle(IdleWell, WellEdge, tile, 4, 4);
+            dc.Pop(); dc.Pop();
+            return;
+        }
+        dc.DrawRoundedRectangle(critical ? fill : StatusWell, critical ? null : WellEdge, tile, 4, 4);
         if (prominence == FlagProminence.Caution)
-            dc.DrawRoundedRectangle(fill, null, new Rect(0, 0, labeled ? 46 : faceWidth, tile.Height), 4, 4);
-        dc.PushTransform(new TranslateTransform(labeled ? 9 : (faceWidth - 28) / 2, 8));
+            dc.DrawRoundedRectangle(fill, null, new Rect(0, 0, labeled ? 46 : width, tile.Height), 4, 4);
+        dc.PushTransform(new TranslateTransform(labeled ? 9 : (width - 28) / 2, 8));
+        if (indicators.Limiter) dc.DrawGeometry(null, GaugePen, Gauge);
+        else DrawFlagSymbol(dc, flag, fill, notice);
+        dc.Pop();
+        bool waving = flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution;
+        DrawStatusLabel(dc, label, fill, critical, notice || indicators.Limiter, waving, labeled, tile);
+        if (indicators.Accent > 0)
+        {
+            dc.PushOpacity(indicators.Accent * .22);
+            dc.DrawRoundedRectangle(null, LightEdge, tile, 5, 5);
+            dc.Pop();
+        }
+        dc.Pop();
+        dc.Pop();
+    }
+
+    private static void DrawFlagSymbol(DrawingContext dc, RaceFlag flag, Brush fill, bool notice)
+    {
         Pen edge = notice ? LightEdge : DarkEdge;
         dc.DrawLine(edge, new Point(0, -1), new Point(0, 25));
         Brush fabric = notice ? fill : Ink;
@@ -97,7 +123,10 @@ public sealed partial class LedStrip
             dc.DrawLine(DarkEdge, new Point(8, 23), new Point(20, 23));
             dc.DrawLine(DarkEdge, new Point(15, 26), new Point(25, 26));
         }
-        dc.Pop();
+    }
+
+    private void DrawStatusLabel(DrawingContext dc, string label, Brush fill, bool critical, bool notice, bool waving, bool labeled, Rect tile)
+    {
         if (labeled)
         {
             double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -116,13 +145,5 @@ public sealed partial class LedStrip
             }
             else dc.DrawText(flagLabel, new Point(x, (tile.Height - flagLabel.Height) / 2));
         }
-        if (indicators.Accent > 0)
-        {
-            dc.PushOpacity(indicators.Accent * .22);
-            dc.DrawRoundedRectangle(null, LightEdge, tile, 5, 5);
-            dc.Pop();
-        }
-        dc.Pop();
-        dc.Pop();
     }
 }

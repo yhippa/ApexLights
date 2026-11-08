@@ -23,7 +23,10 @@ public sealed partial class ControlWindow
         (string, DemoScenario)[] scenes = [
             ("Normal driving", DemoScenario.Normal), ("Approach shift", DemoScenario.ApproachShift),
             ("Side by side", DemoScenario.SideBySide), ("Local yellow", DemoScenario.LocalYellow),
-            ("Repair required", DemoScenario.Repair), ("Competing alerts", DemoScenario.Competing),
+            ("Green transition", DemoScenario.GreenTransition), ("Blue flag", DemoScenario.BlueFlag),
+            ("Black flag", DemoScenario.BlackFlag), ("Repair required", DemoScenario.Repair),
+            ("Pit limiter", DemoScenario.PitLimiter), ("Finish", DemoScenario.Finish),
+            ("Competing alerts", DemoScenario.Competing), ("Clear conditions", DemoScenario.ClearConditions),
             ("Return to normal", DemoScenario.ReturnToNormal)];
         foreach (var (label, scenario) in scenes)
         {
@@ -54,6 +57,7 @@ public sealed partial class ControlWindow
         session.Click += (_, _) => { demo.NewSession(); app.RefreshDemo(); SetNotice("New demo session started."); };
         actions.Children.Add(show); actions.Children.Add(session); page.Children.Add(actions);
         Check("Demo telemetry connected", demo.Connected, value => { demo.SetConnection(value); app.RefreshDemo(); });
+        Check("Pit limiter engaged", demo.PitLimiter, value => { demo.PitLimiter = value; app.RefreshDemo(); });
         Range("Demo gear", -1, 12, demo.Gear, 1, n => GearDisplay.Format((int)n),
             n => { demo.Gear = (int)n; app.RefreshDemo(); });
         Choices("Alongside", ["Off", "Clear", "Left", "Right", "Both", "Two left", "Two right"], (int)demo.Spotter,
@@ -97,12 +101,14 @@ public sealed partial class ControlWindow
         Range("Side cue size", .75, 1.75, options.SideScale, .05, n => $"{n:P0}", n => { options.SideScale = n; Changed(); });
         Hint("One or two marks show the spotter’s count on each side. The spotter reports lateral overlap only.");
 
-        Heading("Racing flags");
-        Check("Show racing flags", options.ShowFlags, value => { options.ShowFlags = value; Changed(); });
+        Heading("Status panel");
+        Check("Show status panel", options.ShowFlags, value => { options.ShowFlags = value; Changed(); });
+        Check("Include pit limiter", options.IncludeLimiter, value => { options.IncludeLimiter = value; Changed(); });
         Choices("Display", ["Symbol", "With label"], (int)options.FlagStyle, i => { options.FlagStyle = (FlagStyle)i; Changed(); });
         Range("Flag size", .75, 1.75, options.FlagScale, .05, n => $"{n:P0}", n => { options.FlagScale = n; Changed(); });
-        Choices("Dismissal", ["Timed", "Until clear"], (int)options.FlagLifetime, i => { options.FlagLifetime = (FlagLifetime)i; Changed(); });
-        Range("Alert duration", 1, 20, options.AlertSeconds, 1, n => $"{n:0} s", n => { options.AlertSeconds = n; Changed(); });
+        Choices("White flag", ["Timed", "Until clear"], (int)options.FlagLifetime, i => { options.FlagLifetime = (FlagLifetime)i; Changed(); });
+        Range("Notice duration", 1, 20, options.AlertSeconds, 1, n => $"{n:0} s", n => { options.AlertSeconds = n; Changed(); });
+        Hint("GREEN and FINISH use the notice duration. Warnings and LIMITER stay visible while active.");
         Check("Accent a newly raised flag", options.AnimateEntry, value => { options.AnimateEntry = value; Changed(); });
         var dismiss = new Button { Content = "Dismiss current flag", HorizontalAlignment = HorizontalAlignment.Left };
         dismiss.Click += (_, _) => app.DismissFlag();

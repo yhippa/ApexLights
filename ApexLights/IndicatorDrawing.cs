@@ -60,9 +60,12 @@ public sealed partial class LedStrip
             DrawSide(dc, layout, true, indicators.Left);
             DrawSide(dc, layout, false, indicators.Right);
         }
-        if (indicators.Flag != RaceFlag.None && settings.Indicators.ShowFlags) DrawFlag(dc, layout);
+        if (settings.Indicators.ShowFlags) DrawFlag(dc, layout);
         if (!settings.Indicators.ShowGear || string.IsNullOrEmpty(indicators.Gear)) return;
         var options = settings.Indicators;
+        double podWidth = options.GearSize * 1.65;
+        dc.DrawRoundedRectangle(GearPod, WellEdge,
+            new Rect(layout.GearCenter - podWidth / 2, 2, podWidth, layout.Size.Height - 4), 5, 5);
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double scale = Math.Min(ActualWidth / layout.Size.Width, ActualHeight / layout.Size.Height);
         bool compact = options.GearSize * scale * dpi < 20;
