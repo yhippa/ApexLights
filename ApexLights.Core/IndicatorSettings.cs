@@ -13,6 +13,7 @@ public enum SideStyle { Chevrons, Lamps }
 public sealed class IndicatorSettings
 {
     public bool ShowFlags { get; set; }
+    public bool IncludeLimiter { get; set; } = true;
     public bool ShowProximity { get; set; }
     public FlagLifetime FlagLifetime { get; set; }
     public FlagStyle FlagStyle { get; set; } = FlagStyle.Labeled;
@@ -47,6 +48,7 @@ public sealed class IndicatorSettings
     {
         var copy = (IndicatorSettings)MemberwiseClone();
         copy.ShowGear = copy.ShowFlags = copy.ShowProximity = true;
+        copy.IncludeLimiter = true;
         copy.EnabledFlags = IndicatorPolicy.Supported;
         return copy;
     }
@@ -63,4 +65,4 @@ public static class GearDisplay
 }
 
 public readonly record struct IndicatorFrame(string Gear, RaceFlag Flag = RaceFlag.None,
-    int Left = 0, int Right = 0, int Accent = 0, bool NoticeSettled = false);
+    int Left = 0, int Right = 0, int Accent = 0, bool Limiter = false);

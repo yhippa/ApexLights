@@ -20,7 +20,8 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
     private int variables, table, rowSize, rpmOffset = -1, gearOffset = -1;
     private static long nextConnection;
     private long connection = Interlocked.Increment(ref nextConnection);
-    private int flagsOffset, spotterOffset, uniqueOffset, numberOffset;
+    private int flagsOffset, spotterOffset, uniqueOffset, numberOffset, engineWarningsOffset;
+    private const int PitSpeedLimiter = 0x0010; // irsdk_EngineWarnings, distinct from rev limiter (0x0020).
     private CarSession? session;
     private int? lastTick;
 
@@ -69,6 +70,7 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
         int? Channel(int offset) => offset < 0 ? null : view.ReadInt32((long)row + offset);
         int? gear = Channel(gearOffset);
         var flags = (RaceFlag)(uint)(Channel(flagsOffset) ?? 0);
+        bool limiter = ((Channel(engineWarningsOffset) ?? 0) & PitSpeedLimiter) != 0;
         int side = Channel(spotterOffset) ?? 0;
         var spotter = side is >= 0 and <= 6 ? (SpotterState)side : SpotterState.Off;
         int? uniqueId = Channel(uniqueOffset), sessionNum = Channel(numberOffset);
@@ -79,13 +81,14 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
         if (lastTick.HasValue && tick < lastTick.Value) connection = Interlocked.Increment(ref nextConnection);
         var key = new SessionKey(connection, uniqueId, sessionNum, session!.Key);
         lastTick = tick;
-        return new(rpm, tick, session, new(gear is >= -1 and <= 30 ? gear : null, flags, spotter, key));
+        return new(rpm, tick, session, new(gear is >= -1 and <= 30 ? gear : null, flags, spotter, key,
+            limiter, flagsOffset >= 0));
     }
 
     private void LoadVariables(int count, int start, int size)
     {
         Range(start, (long)count * VariableSize);
-        rpmOffset = gearOffset = flagsOffset = spotterOffset = uniqueOffset = numberOffset = -1;
+        rpmOffset = gearOffset = flagsOffset = spotterOffset = uniqueOffset = numberOffset = engineWarningsOffset = -1;
         var nameBytes = new byte[32];
         for (int i = 0; i < count; i++)
         {
@@ -100,6 +103,7 @@ public sealed class SdkReader(MemoryMappedViewAccessor view)
                 case ("RPM", 4): rpmOffset = offset; break;
                 case ("Gear", 2): gearOffset = offset; break;
                 case ("SessionFlags", 3): flagsOffset = offset; break;
+                case ("EngineWarnings", 3): engineWarningsOffset = offset; break;
                 case ("CarLeftRight", 2): spotterOffset = offset; break;
                 case ("SessionUniqueID", 2): uniqueOffset = offset; break;
                 case ("SessionNum", 2): numberOffset = offset; break;

@@ -14,4 +14,5 @@ public enum RaceFlag : uint
 public enum SpotterState { Off = 0, Clear = 1, Left = 2, Right = 3, Both = 4, TwoLeft = 5, TwoRight = 6 }
 
 public readonly record struct SessionKey(long Connection, int? UniqueId, int? Number, string Car);
-public readonly record struct RaceSignal(int? Gear, RaceFlag Flags, SpotterState Spotter, SessionKey Session);
+public readonly record struct RaceSignal(int? Gear, RaceFlag Flags, SpotterState Spotter, SessionKey Session,
+    bool PitLimiter = false, bool FlagsAvailable = true);

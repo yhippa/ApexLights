@@ -23,8 +23,10 @@ internal static partial class Program
         Run("1.0 settings migrate with indicators off and round-trip 1.1 options", Upgrade);
         Run("1.1 keeps enabled cues and adopts bounded independent cue sizes", CueSizeUpgrade);
         Run("Demo feeds real alert logic through disconnect and reconnect", DemoCycle);
-        Run("Critical alerts blocked by a higher flag get display time only while still raised", PendingCritical);
-        Run("Informational status settles once and clears on edge or session change", QuietNotice);
+        Run("Critical flags persist, preempt and clear from the current signal", PendingCritical);
+        Run("GREEN and FINISH require observed edges and expire to quiet", QuietNotice);
+        Run("Limiter and finish compete with racing conditions without stale replay", LimiterPriority);
+        Run("Reconnect, unavailable input and filters cannot manufacture an event", NoticeBaseline);
         Run("All driving scenarios reconnect, apply thresholds and clear previous inputs", ScenarioInputs);
         Run("Scenario visibility and inactive LED brightness preserve the saved profile", ScenarioSettings);
         Run("Gear formatting covers reverse, neutral, forward and unavailable", () =>
@@ -211,7 +213,7 @@ internal static partial class Program
         var descriptors = new byte[288];
         w.ReadArray(112, descriptors, 0, descriptors.Length);
         w.WriteArray(4096, descriptors, 0, descriptors.Length);
-        w.Write(28, 4096); w.Write(24, 4);
+        w.Write(28, 4096); w.Write(24, 5); w.Write(36, 20); w.Write(52, Row0 - 16);
         void Add(int index, string name, int type, int offset)
         {
             int address = 4096 + index * 144;
@@ -220,13 +222,19 @@ internal static partial class Program
             w.WriteArray(address + 16, bytes, 0, bytes.Length);
         }
         Add(2, "SessionFlags", 3, 0); Add(3, "CarLeftRight", 2, 12);
+        Add(4, "EngineWarnings", 3, 16); w.Write(Row1 + 16, 0x30);
         w.Write(Row1, 0x10020); w.Write(Row1 + 12, 5);
         var reader = new SdkReader(view);
         var s = reader.Read()!;
         Assert(s.Signal.Flags == (RaceFlag.Black | RaceFlag.Blue) && s.Signal.Spotter == SpotterState.TwoLeft, "typed fields");
+        Assert(s.Signal.PitLimiter && s.Signal.FlagsAvailable, "documented pit speed limiter bit");
+        w.Write(Row1 + 16, 0x20); w.Write(64, 11);
+        Assert(reader.Read()!.Signal.PitLimiter == false, "rev limiter does not imply pit limiter");
+        Add(4, "EngineWarnings", 2, 16); w.Write(Row1 + 16, 0x10);
         Add(2, "SessionFlags", 2, 0); w.Write(12, 2); w.Write(Row1 + 12, 127);
         s = reader.Read()!;
-        Assert(s.Signal.Flags == 0 && s.Signal.Spotter == SpotterState.Off && s.Rpm == 6900, "optional channel recovery");
+        Assert(s.Signal.Flags == 0 && !s.Signal.FlagsAvailable && !s.Signal.PitLimiter &&
+            s.Signal.Spotter == SpotterState.Off && s.Rpm == 6900, "optional channel recovery");
     }
 
     private static void BadMapping()

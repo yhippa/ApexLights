@@ -2,7 +2,7 @@ using System;
 
 namespace ApexLights.Core;
 
-public enum FlagProminence { Informational, Caution, Critical }
+public enum FlagProminence { Informational, Celebration, Operational, Caution, Critical }
 
 public sealed class IndicatorPolicy
 {
@@ -10,36 +10,37 @@ public sealed class IndicatorPolicy
         RaceFlag.Yellow | RaceFlag.Caution | RaceFlag.WavingCaution | RaceFlag.Blue | RaceFlag.Checkered |
         RaceFlag.White | RaceFlag.Green;
 
-    // Only flags contend for the same region. Gear, proximity and the shift LEDs have independent slots.
+    // One exclusive status slot. None in this table identifies the separate EngineWarnings input.
     private static readonly RaceFlag[] Order = [RaceFlag.Red, RaceFlag.Black, RaceFlag.Repair,
         RaceFlag.WavingYellow, RaceFlag.WavingCaution, RaceFlag.Yellow, RaceFlag.Caution,
-        RaceFlag.Blue, RaceFlag.Checkered, RaceFlag.White, RaceFlag.Green];
+        RaceFlag.Blue, RaceFlag.None, RaceFlag.Checkered, RaceFlag.White, RaceFlag.Green];
+
     public static FlagProminence Prominence(RaceFlag flag) => flag switch
     {
         RaceFlag.Red or RaceFlag.Black or RaceFlag.Repair => FlagProminence.Critical,
         RaceFlag.Blue or RaceFlag.Yellow or RaceFlag.WavingYellow or RaceFlag.Caution or RaceFlag.WavingCaution => FlagProminence.Caution,
+        RaceFlag.None => FlagProminence.Operational,
+        RaceFlag.Checkered => FlagProminence.Celebration,
         _ => FlagProminence.Informational
     };
 
-    private enum Phase { Clear, Pending, Visible, Dismissed, Expired }
     private struct Alert
     {
-        public Phase Phase;
+        private bool observed, previouslyRaised;
+        public bool Visible;
         public double Began;
-        public void Update(bool raised, bool critical, double time, IndicatorSettings options)
-        {
-            if (!raised) { Phase = Phase.Clear; return; }
-            if (Phase == Phase.Clear) { Began = time; Phase = Phase.Pending; }
-            if ((Phase == Phase.Visible || (Phase == Phase.Pending && !critical)) && options.FlagLifetime == FlagLifetime.Timed &&
-                time - Began >= options.AlertSeconds) Phase = Phase.Expired;
-        }
 
-        public void Present(bool critical, double time)
+        public void Update(bool raised, bool edgeEvent, bool timed, double now, double duration)
         {
-            if (Phase != Phase.Pending) return;
-            // A still-raised critical flag gets its display time even if a higher flag occupied the slot.
-            if (critical) Began = time;
-            Phase = Phase.Visible;
+            // A first sample describes the current state; it cannot establish a start or finish crossing.
+            if (raised && !previouslyRaised && (observed || !edgeEvent))
+            {
+                Visible = true;
+                Began = now;
+            }
+            if ((!edgeEvent && !raised) || (timed && now - Began >= duration)) Visible = false;
+            previouslyRaised = raised;
+            observed = true;
         }
     }
 
@@ -56,7 +57,7 @@ public sealed class IndicatorPolicy
 
     public void Dismiss()
     {
-        if (displayed >= 0) alerts[displayed].Phase = Phase.Dismissed;
+        if (displayed >= 0) alerts[displayed].Visible = false;
     }
 
     public IndicatorFrame Evaluate(RaceSignal? input, IndicatorSettings options, LightFrame lights, double seconds)
@@ -67,28 +68,32 @@ public sealed class IndicatorPolicy
             return new("");
         }
         if (session != signal.Session) { Reset(); session = signal.Session; }
-        RaceFlag enabled = options.ShowFlags ? signal.Flags & options.EnabledFlags : RaceFlag.None;
         displayed = -1;
         for (int i = 0; i < Order.Length; i++)
         {
-            bool critical = Prominence(Order[i]) == FlagProminence.Critical;
-            alerts[i].Update((enabled & Order[i]) != 0, critical, seconds, options);
-            if (displayed < 0 && alerts[i].Phase is Phase.Pending or Phase.Visible)
-            {
-                alerts[i].Present(critical, seconds);
-                displayed = i;
-            }
+            RaceFlag flag = Order[i];
+            bool limiter = flag == RaceFlag.None;
+            bool enabled = limiter ? options.IncludeLimiter : signal.FlagsAvailable && (flag & options.EnabledFlags) != 0;
+            if (!options.ShowFlags || !enabled) { alerts[i] = default; continue; }
+
+            bool edgeEvent = flag is RaceFlag.Green or RaceFlag.Checkered;
+            bool timed = edgeEvent || (flag == RaceFlag.White && options.FlagLifetime == FlagLifetime.Timed);
+            bool raised = limiter ? signal.PitLimiter : (signal.Flags & flag) != 0;
+            alerts[i].Update(raised, edgeEvent, timed, seconds, options.AlertSeconds);
+            if (displayed < 0 && alerts[i].Visible) displayed = i;
         }
+
         var (left, right) = options.ShowProximity ? Sides(signal.Spotter) : (0, 0);
-        // A short fading outline on entry is the only flag animation. RPM flashing owns the blink cadence.
+        RaceFlag selected = displayed < 0 ? RaceFlag.None : Order[displayed];
         int accent = 0;
-        RaceFlag flag = displayed < 0 ? RaceFlag.None : Order[displayed];
-        double age = displayed < 0 ? 0 : seconds - alerts[displayed].Began;
-        bool notice = Prominence(flag) == FlagProminence.Informational;
-        if (displayed >= 0 && !notice && options.AnimateEntry && !lights.Flashing)
-            accent = age < .5 ? Math.Clamp(4 - (int)(age * 8), 0, 4) : 0;
-        return new(options.ShowGear ? GearDisplay.Format(signal.Gear) : "", flag, left, right, accent,
-            displayed >= 0 && notice && age >= 1.5);
+        if (displayed >= 0 && options.AnimateEntry && !lights.Flashing &&
+            Prominence(selected) is FlagProminence.Critical or FlagProminence.Caution)
+        {
+            double age = seconds - alerts[displayed].Began;
+            if (age < .5) accent = Math.Clamp(4 - (int)(age * 8), 0, 4);
+        }
+        return new(options.ShowGear ? GearDisplay.Format(signal.Gear) : "", selected, left, right, accent,
+            displayed >= 0 && selected == RaceFlag.None);
     }
 
     private static (int, int) Sides(SpotterState state) => state switch

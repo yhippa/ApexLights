@@ -30,7 +30,7 @@ internal static partial class Program
         options.AlertSeconds = 2;
         IndicatorFrame At(RaceFlag flags, double time) => policy.Evaluate(Signal(flags), options, default, time);
         Assert(At(RaceFlag.Yellow, 1).Accent == 4 && At(RaceFlag.Yellow, 2).Accent == 0, "single entry animation");
-        Assert(At(RaceFlag.Yellow, 3).Flag == 0 && At(RaceFlag.Yellow, 10).Flag == 0, "no timer refresh on repeated telemetry");
+        Assert(At(RaceFlag.Yellow, 3).Flag == RaceFlag.Yellow && At(RaceFlag.Yellow, 10).Accent == 0, "held caution persists without re-entry");
         At(0, 11);
         Assert(At(RaceFlag.Yellow, 12).Flag == RaceFlag.Yellow, "new rising edge");
         policy.Dismiss();
@@ -130,10 +130,11 @@ internal static partial class Program
         IndicatorFrame At(RaceFlag flags, double t) => policy.Evaluate(Signal(flags), options, default, t);
         var all = RaceFlag.Red | RaceFlag.Black | RaceFlag.Repair | RaceFlag.Blue;
         Assert(At(all, 0).Flag == RaceFlag.Red, "red first");
-        Assert(At(all, 2).Flag == RaceFlag.Black && At(all, 3.9).Flag == RaceFlag.Black, "black gets full slot");
-        Assert(At(all & ~RaceFlag.Repair, 4).Flag == 0, "cleared queued repair and expired blue stay hidden");
-        Assert(At(all, 4.1).Flag == RaceFlag.Repair, "new repair edge");
-        Assert(At(RaceFlag.Red, 4.2).Flag == 0, "held red never restarts");
+        Assert(At(all, 200).Flag == RaceFlag.Red, "critical persists while raised");
+        Assert(At(all & ~RaceFlag.Red, 201).Flag == RaceFlag.Black, "underlying black becomes eligible on red clear");
+        Assert(At(RaceFlag.Blue, 202).Flag == RaceFlag.Blue, "cleared black and repair are never replayed");
+        Assert(At(RaceFlag.Repair | RaceFlag.Blue, 203).Flag == RaceFlag.Repair, "new repair preempts blue");
+        Assert(At(0, 204).Flag == 0, "immediate clear");
     }
 
     private static void QuietNotice()
@@ -143,11 +144,55 @@ internal static partial class Program
         options.FlagLifetime = FlagLifetime.UntilClear;
         IndicatorFrame At(RaceFlag flag, double t, int session = 1) =>
             policy.Evaluate(Signal(flag, SpotterState.Both, session), options, default, t);
-        Assert(At(RaceFlag.Green, 0).Accent == 0 && !At(RaceFlag.Green, 1.49).NoticeSettled, "quiet entry");
-        Assert(At(RaceFlag.Green, 1.5).NoticeSettled && At(RaceFlag.Green, 100).NoticeSettled, "persistent compact notice");
-        Assert(At(RaceFlag.Blue | RaceFlag.Green, 101).Flag == RaceFlag.Blue, "caution preempts notice");
-        Assert(At(RaceFlag.Green, 102).NoticeSettled, "return without new entry");
-        Assert(!At(RaceFlag.Green, 103, 2).NoticeSettled && At(0, 104, 2).Flag == 0, "new session then clear");
+        Assert(At(RaceFlag.Green, 0).Flag == 0, "joining during green is not a transition");
+        At(0, 1);
+        Assert(At(RaceFlag.Green, 2).Flag == RaceFlag.Green && At(RaceFlag.Green, 5.99).Accent == 0, "observed green edge");
+        Assert(At(RaceFlag.Green, 6).Flag == 0 && At(RaceFlag.Green, 100).Flag == 0, "no sticky icon or repeated notice");
+        Assert(At(RaceFlag.Blue | RaceFlag.Green, 101).Flag == RaceFlag.Blue, "caution preempts routine state");
+        Assert(At(RaceFlag.Green, 102).Flag == 0, "return to quiet");
+        Assert(At(RaceFlag.Checkered, 103, 2).Flag == 0, "new session seeds the finish bit");
+        At(0, 104, 2);
+        Assert(At(RaceFlag.Checkered, 105, 2).Flag == RaceFlag.Checkered && At(0, 106, 2).Flag == RaceFlag.Checkered,
+            "brief checkered pulse lasts the notice window");
+        Assert(At(0, 109, 2).Flag == 0, "finish expires");
+    }
+
+    private static void LimiterPriority()
+    {
+        var policy = new IndicatorPolicy();
+        var options = Enabled();
+        options.AlertSeconds = 1;
+        IndicatorFrame At(RaceFlag flags, bool limiter, double time) =>
+            policy.Evaluate(Signal(flags, SpotterState.TwoRight) with { PitLimiter = limiter }, options, new(12,true,true), time);
+        At(0, false, 0);
+        var f = At(RaceFlag.Checkered, true, .1);
+        Assert(f.Limiter && f.Flag == 0 && f.Right == 2 && f.Gear == "4", "operation preempts finish; other regions independent");
+        Assert(At(RaceFlag.Blue | RaceFlag.Checkered, true, 2).Flag == RaceFlag.Blue, "racing caution above limiter");
+        Assert(At(RaceFlag.Blue | RaceFlag.Black, true, 3).Flag == RaceFlag.Black, "critical above blue and limiter");
+        Assert(At(0, true, 4).Limiter && At(0, true, 100).Limiter, "held limiter survives notice duration");
+        Assert(At(0, false, 101) == new IndicatorFrame("4",0,0,2), "quiet when operational state clears");
+        options.IncludeLimiter = false;
+        Assert(!At(0, true, 102).Limiter, "limiter filter");
+        options.IncludeLimiter = true;
+        At(0, true, 103); policy.Dismiss();
+        Assert(!At(0, true, 104).Limiter, "manual dismissal does not rearm on repeated samples");
+        At(0, false, 105);
+        Assert(At(0, true, 106).Limiter, "next limiter engagement");
+    }
+
+    private static void NoticeBaseline()
+    {
+        var policy = new IndicatorPolicy();
+        var options = Enabled();
+        var green = Signal(RaceFlag.Green);
+        IndicatorFrame At(RaceSignal? s, double time) => policy.Evaluate(s, options, default, time);
+        At(Signal(0), 0); Assert(At(green, 1).Flag == RaceFlag.Green, "edge");
+        At(null, 2); Assert(At(green, 3).Flag == 0, "no event on reconnect");
+        At(green with { FlagsAvailable=false }, 4); Assert(At(green, 5).Flag == 0, "channel recovery establishes a fresh baseline");
+        options.EnabledFlags &= ~RaceFlag.Green;
+        At(green, 6); options.EnabledFlags |= RaceFlag.Green;
+        Assert(At(green, 7).Flag == 0, "enabling a held event is not a new edge");
+        Assert(At(Signal(RaceFlag.Repair, number: 2), 8).Flag == RaceFlag.Repair, "active warning shown at session entry");
     }
 
     private static void ScenarioInputs()
@@ -155,10 +200,15 @@ internal static partial class Program
         var demo = new DemoSignals();
         var options = Enabled();
         var policy = new IndicatorPolicy();
-        DemoDrive Stage(DemoScenario scene) => demo.Apply(scene, Points, 125, FlashTrigger.Blink);
+        DemoDrive Stage(DemoScenario scene)
+        {
+            demo.BeginScenario();
+            policy.Evaluate(demo.Read(), options, default, 0);
+            return demo.Apply(scene, Points, 125, FlashTrigger.Blink);
+        }
         demo.SetConnection(false);
         Stage(DemoScenario.Normal);
-        Assert(demo.Connected && demo.Gear == 4 && demo.Flags == RaceFlag.Green, "normal driving reconnects");
+        Assert(demo.Connected && demo.Gear == 4 && demo.Flags == 0 && !demo.PitLimiter, "normal driving is quiet");
         var drive = Stage(DemoScenario.ApproachShift);
         Assert(drive.Sweep && drive.Rpm < Points.Blink + 125 && drive.Rpm > Points.First + 125, "approach uses selected cue");
         Stage(DemoScenario.SideBySide);
