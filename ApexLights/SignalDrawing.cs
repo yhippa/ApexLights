@@ -8,44 +8,52 @@ namespace ApexLights;
 
 public sealed partial class LedStrip
 {
-    private static readonly Brush Amber = Solid("#FFBE46"), Ink = Solid("#10171A"), Chalk = Solid("#F4F7F2");
-    private static readonly Brush StatusWell = Solid("#202629");
-    private static readonly Brush IdleWell = Solid("#121719"), GearPod = Solid("#191E21"), Operational = Solid("#ACDED6");
-    private static readonly Pen WellEdge = Freeze(new Pen(Solid("#343B3D"), .85));
+    private static readonly Brush Ink = Solid("#10171A"), Chalk = Solid("#F4F7F2");
+    private static readonly Brush StatusWell = Finish("#242629", "#101214", "#181A1C");
+    private static readonly Brush IdleWell = Finish("#131517", "#0B0D0F", "#141618");
+    private static readonly Brush GearPod = Finish("#373A3F", "#1D1F22", "#0C0D0F"), Operational = Solid("#ACDED6");
+    private static readonly Pen PodRim = Freeze(new Pen(Finish("#F2F3F3", "#B8B9BC", "#636569"), 2));
+    private static Pen WellEdge => RecessEdge;
+    private static readonly Brush CapOff = Finish("#303236", "#202225", "#121416"), MarkOff = Solid("#474A4F");
+    private static readonly Brush CapOn = Finish("#FFE133", "#FFCB0A", "#FFB808");
+    private static readonly Pen CapRim = Freeze(new Pen(Finish("#FFF18B", "#DC9B00", "#754A04"), 1.0));
     private static readonly Pen GaugePen = Freeze(new Pen(Operational, 2.4));
     private static readonly Geometry Gauge = Freeze(Geometry.Parse("M2,20 A12,12 0 0 1 26,20 M14,20 L21,11 M3,20 L7,20 M21,20 L25,20"));
     private static readonly Brush FlagYellow = Solid("#FFCF3C"), FlagRed = Solid("#FF6254"),
-        FlagBlue = Solid("#73B9FF"), FlagGreen = Solid("#59E695"), Orange = Solid("#FF9048");
+        FlagBlue = Solid("#73B9FF"), FlagGreen = Solid("#44F64C"), Orange = Solid("#FF9048");
     private static readonly Pen DarkEdge = Freeze(new Pen(Ink, 1.8)), LightEdge = Freeze(new Pen(Chalk, 2));
     private static readonly Geometry Chevron = Freeze(Geometry.Parse("M8,0 H16 L8,12 L16,24 H8 L0,12 Z"));
-    private static readonly Geometry Banner = Freeze(Geometry.Parse("M0,0 Q7,-3 14,0 T28,0 V18 Q21,21 14,18 T0,18 Z"));
-    private static readonly Typeface FlagTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+    private static readonly Geometry Banner = Freeze(Geometry.Parse("M4,1 Q10,-3 17,0 T29,0 L26,17 Q21,21 15,18 T1,18 Z"));
+    private static readonly Typeface FlagTypeface = new(new FontFamily("Segoe UI"), FontStyles.Italic, FontWeights.ExtraBold, FontStretches.Normal);
     private FormattedText? flagLabel, waveCaption;
 
     private void DrawSide(DrawingContext dc, StripLayout layout, bool left, int count)
     {
-        if (count == 0) return;
+        bool active = count != 0;
+        if (!active && !settings.DarkHousing) return;
         double scale = settings.Indicators.SideScale;
         double width = StripLayout.SideTileWidth, height = StripLayout.SideTileHeight;
         dc.PushTransform(new TranslateTransform(layout.SideX(left), (layout.Size.Height - height * scale) / 2));
         dc.PushTransform(new ScaleTransform(scale, scale));
         var tile = new Rect(0, 0, width, height);
+        dc.DrawRoundedRectangle(active && settings.Indicators.SideStyle == SideStyle.Chevrons ? CapOn : CapOff,
+            active && settings.Indicators.SideStyle == SideStyle.Chevrons ? CapRim : RecessEdge, tile, 7, 7);
         if (settings.Indicators.SideStyle == SideStyle.Lamps)
         {
-            dc.DrawRoundedRectangle(StatusWell, null, tile, 4, 4);
-            double lampWidth = count == 2 ? 16 : 36;
-            for (int i = 0; i < count; i++)
-                dc.DrawRoundedRectangle(Amber, null, new Rect(5 + i * 20, 4, lampWidth, height - 8), 3, 3);
+            int lamps = active ? count : 2;
+            double lampWidth = (width - 10 - (lamps - 1) * 4) / lamps;
+            for (int i = 0; i < lamps; i++)
+                dc.DrawRoundedRectangle(active ? CapOn : MarkOff, null, new Rect(5 + i * (lampWidth + 4), 4, lampWidth, height - 8), 3, 3);
         }
         else
         {
-            dc.DrawRoundedRectangle(Amber, null, tile, 4, 4);
             if (!left) dc.PushTransform(new MatrixTransform(-1, 0, 0, 1, width, 0));
-            double start = (width - (count == 2 ? 36 : 16)) / 2;
-            for (int i = 0; i < count; i++)
+            int marks = active ? count : 2;
+            double start = (width - (marks == 2 ? 36 : 16)) / 2;
+            for (int i = 0; i < marks; i++)
             {
                 dc.PushTransform(new TranslateTransform(start + i * 20, (height - 24) / 2));
-                dc.DrawGeometry(Ink, null, Chevron);
+                dc.DrawGeometry(active ? Ink : MarkOff, null, Chevron);
                 dc.Pop();
             }
             if (!left) dc.Pop();
@@ -83,7 +91,7 @@ public sealed partial class LedStrip
             dc.Pop(); dc.Pop();
             return;
         }
-        dc.DrawRoundedRectangle(critical ? fill : StatusWell, critical ? null : WellEdge, tile, 4, 4);
+        dc.DrawRoundedRectangle(critical ? fill : StatusWell, critical ? null : WellEdge, tile, 5, 5);
         if (prominence == FlagProminence.Caution)
             dc.DrawRoundedRectangle(fill, null, new Rect(0, 0, labeled ? 46 : width, tile.Height), 4, 4);
         dc.PushTransform(new TranslateTransform(labeled ? 9 : (width - 28) / 2, 8));
@@ -91,7 +99,7 @@ public sealed partial class LedStrip
         else DrawFlagSymbol(dc, flag, fill, notice);
         dc.Pop();
         bool waving = flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution;
-        DrawStatusLabel(dc, label, fill, critical, notice || indicators.Limiter, waving, labeled, tile);
+        DrawStatusLabel(dc, label, fill, critical, waving, labeled, tile);
         if (indicators.Accent > 0)
         {
             dc.PushOpacity(indicators.Accent * .22);
@@ -104,10 +112,10 @@ public sealed partial class LedStrip
 
     private static void DrawFlagSymbol(DrawingContext dc, RaceFlag flag, Brush fill, bool notice)
     {
-        Pen edge = notice ? LightEdge : DarkEdge;
-        dc.DrawLine(edge, new Point(0, -1), new Point(0, 25));
+        Pen edge = notice ? FlagPole(flag) : DarkEdge;
+        dc.DrawLine(edge, new Point(4, 1), new Point(0, 25));
         Brush fabric = notice ? fill : Ink;
-        dc.DrawGeometry(fabric, edge, Banner);
+        dc.DrawGeometry(fabric, null, Banner);
         if (flag == RaceFlag.Checkered)
         {
             dc.PushClip(Banner);
@@ -125,14 +133,17 @@ public sealed partial class LedStrip
         }
     }
 
-    private void DrawStatusLabel(DrawingContext dc, string label, Brush fill, bool critical, bool notice, bool waving, bool labeled, Rect tile)
+    private static readonly Pen GreenPole = Freeze(new Pen(FlagGreen, 1.7));
+    private static Pen FlagPole(RaceFlag flag) => flag == RaceFlag.Green ? GreenPole : LightEdge;
+
+    private void DrawStatusLabel(DrawingContext dc, string label, Brush fill, bool critical, bool waving, bool labeled, Rect tile)
     {
         if (labeled)
         {
             double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             if (flagLabel == null || flagLabel.Text != label || flagLabel.PixelsPerDip != dpi)
                 flagLabel = new FormattedText(label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                    FlagTypeface, 18, critical ? Ink : (notice ? fill : Chalk), dpi);
+                    FlagTypeface, 18, critical ? Ink : Chalk, dpi);
             double x = critical ? 45 : 50;
             if (waving)
             {

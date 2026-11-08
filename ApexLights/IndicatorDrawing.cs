@@ -8,36 +8,62 @@ namespace ApexLights;
 
 internal readonly struct StripLayout
 {
+    public const double SideTileWidth = 48, SideTileHeight = 35, FlagTileHeight = 36, CueGap = 6;
+    private const double RailPadding = 8;
     private readonly Settings s;
-    private readonly int gearIndex;
-    private readonly double gearWidth;
-    private readonly double sideWidth;
-    public const double SideTileWidth = 46, SideTileHeight = 36;
-    public const double FlagTileHeight = 38, CueGap = 6;
+    private readonly int firstCount;
+    private readonly double margin;
+    public Rect FirstRail { get; }
+    public Rect SecondRail { get; }
+    public Rect GearPodBounds { get; }
+    public Rect ShellBounds { get; }
     public double FlagWidth { get; }
-    public double FlagX => Size.Width - 9 - sideWidth - FlagWidth;
-    public double SideX(bool left) => left ? 9 : Size.Width - 9 - sideWidth + CueGap;
+    public double FlagX { get; }
     public double LensHeight { get; }
     public Size Size { get; }
 
     public StripLayout(Settings settings)
     {
         s = settings;
-        var options = s.Indicators;
-        sideWidth = options.ShowProximity ? SideTileWidth * options.SideScale + CueGap : 0;
-        FlagWidth = options.ShowFlags ? (options.FlagStyle == FlagStyle.Labeled ? 138 : 48) * options.FlagScale : 0;
-        gearIndex = options.GearPosition switch { GearPosition.Left => 0, GearPosition.Center => (s.Count + 1) / 2, _ => s.Count };
-        gearWidth = options.ShowGear ? options.GearSize * 1.65 + s.Gap : 0;
+        var opt = s.Indicators;
         LensHeight = s.LensSize * (s.Shape == LensShape.Blade ? .72 : 1);
-        double cueHeight = Math.Max(options.ShowFlags ? FlagTileHeight * options.FlagScale + 10 : 0,
-            options.ShowProximity ? SideTileHeight * options.SideScale + 10 : 0);
-        Size = new(18 + s.Count * s.LensSize + (s.Count - 1) * s.Gap + gearWidth +
-            (options.ShowFlags ? FlagWidth + CueGap : 0) + 2 * sideWidth,
-            Math.Max(cueHeight, Math.Max(16 + LensHeight, options.ShowGear ? options.GearSize * 1.45 + 4 : 0)));
+        FlagWidth = opt.ShowFlags ? (opt.FlagStyle == FlagStyle.Labeled ? 152 : 48) * opt.FlagScale : 0;
+        firstCount = !opt.ShowGear ? s.Count : opt.GearPosition switch
+        {
+            GearPosition.Left => 0, GearPosition.Center => (s.Count + 1) / 2, _ => s.Count
+        };
+        margin = opt.ShowFlags || opt.ShowProximity || opt.ShowGear ? 7 : 1;
+        double shellH = Math.Max(LensHeight + 16, Math.Max(opt.ShowProximity ? SideTileHeight * opt.SideScale + 11 : 0,
+            opt.ShowFlags ? FlagTileHeight * opt.FlagScale + 10 : 0));
+        double podH = opt.ShowGear ? Math.Max(opt.GearSize * 1.35 + 6, Math.Min(54, LensHeight + 36)) : 0;
+        double height = Math.Max(shellH, podH + (opt.ShowGear ? 2 : 0));
+        double railH = Math.Max(LensHeight + 6, shellH - 10);
+        double side = opt.ShowProximity ? SideTileWidth * opt.SideScale + CueGap : 0;
+        double x = margin + side;
+        Rect Rail(int count, double left) => count == 0 ? Rect.Empty :
+            new Rect(left, (height - railH) / 2, 2 * RailPadding + count * settings.LensSize + (count - 1) * settings.Gap, railH);
+        FirstRail = Rail(firstCount, x);
+        if (!FirstRail.IsEmpty) x = FirstRail.Right;
+        GearPodBounds = Rect.Empty;
+        if (opt.ShowGear)
+        {
+            if (firstCount > 0) x += CueGap;
+            GearPodBounds = new Rect(x, (height - podH) / 2, Math.Max(opt.GearSize * 1.6, podH * 1.04), podH);
+            x = GearPodBounds.Right;
+            if (firstCount < s.Count) x += CueGap;
+        }
+        SecondRail = Rail(s.Count - firstCount, x);
+        if (!SecondRail.IsEmpty) x = SecondRail.Right;
+        FlagX = x + CueGap;
+        if (opt.ShowFlags) x = FlagX + FlagWidth;
+        Size = new(x + side + margin, height);
+        ShellBounds = new Rect(.6, (height - shellH) / 2 + .6, Size.Width - 1.2, shellH - 1.2);
     }
 
-    public double LensX(int i) => 9 + sideWidth + i * (s.LensSize + s.Gap) + (i >= gearIndex ? gearWidth : 0);
-    public double GearCenter => 9 + sideWidth + gearIndex * (s.LensSize + s.Gap) + (gearWidth - s.Gap) / 2;
+    public double LensX(int index) => index < firstCount
+        ? FirstRail.X + RailPadding + index * (s.LensSize + s.Gap)
+        : SecondRail.X + RailPadding + (index - firstCount) * (s.LensSize + s.Gap);
+    public double SideX(bool left) => left ? margin : Size.Width - margin - SideTileWidth * s.Indicators.SideScale;
 }
 
 public sealed partial class LedStrip
@@ -61,11 +87,14 @@ public sealed partial class LedStrip
             DrawSide(dc, layout, false, indicators.Right);
         }
         if (settings.Indicators.ShowFlags) DrawFlag(dc, layout);
-        if (!settings.Indicators.ShowGear || string.IsNullOrEmpty(indicators.Gear)) return;
+        if (!settings.Indicators.ShowGear) return;
         var options = settings.Indicators;
-        double podWidth = options.GearSize * 1.65;
-        dc.DrawRoundedRectangle(GearPod, WellEdge,
-            new Rect(layout.GearCenter - podWidth / 2, 2, podWidth, layout.Size.Height - 4), 5, 5);
+        Rect pod = layout.GearPodBounds;
+        var face = pod;
+        face.Inflate(-1.3, -1.3);
+        double corner = Math.Min(13, pod.Height * .21);
+        dc.DrawRoundedRectangle(GearPod, PodRim, face, corner, corner);
+        if (string.IsNullOrEmpty(indicators.Gear)) return;
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double scale = Math.Min(ActualWidth / layout.Size.Width, ActualHeight / layout.Size.Height);
         bool compact = options.GearSize * scale * dpi < 20;
@@ -73,10 +102,10 @@ public sealed partial class LedStrip
         {
             compactGear = compact;
             gearText = new FormattedText(indicators.Gear, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                new Typeface(new FontFamily(options.GearFont), FontStyles.Normal,
-                    compact ? FontWeights.Bold : FontWeights.SemiBold, FontStretches.Normal),
-                options.GearSize, Brushes.WhiteSmoke, dpi);
+                new Typeface(new FontFamily(options.GearFont), FontStyles.Italic,
+                    compact ? FontWeights.Black : FontWeights.ExtraBold, FontStretches.Normal),
+                options.GearSize, Brushes.White, dpi);
         }
-        dc.DrawText(gearText, new Point(layout.GearCenter - gearText.Width / 2, (layout.Size.Height - gearText.Height) / 2));
+        dc.DrawText(gearText, new Point(pod.X + (pod.Width - gearText.Width) / 2 - .5, pod.Y + (pod.Height - gearText.Height) / 2));
     }
 }
