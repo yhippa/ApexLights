@@ -12,7 +12,7 @@ A standalone Windows 11 x64 shift-light strip for iRacing. Download **ApexLights
 
 ## Tune the strip
 
-For the mock-up’s cockpit look, choose **Telemetry → Demo → Cockpit preview**. This stages fourth gear, the full LED bank, two cars on the right and a brief green-flag event. It temporarily uses the cockpit palette and geometry. **Return to normal** restores your saved appearance and scale.
+In **Telemetry → Demo**, the **Demo look** applies to every scenario and the manual controls. **Cockpit** is the default and uses the neon palette; **My setup** previews your saved driving appearance. Switching scenarios changes only the simulated inputs. **Full lights** stages fourth gear, the full LED bank, two cars on the right, and a brief green-flag event.
 
 To use that appearance in a race, click **Appearance → Apply cockpit preset**. The preset turns on the gear pod, status panel and side indicators, and selects twelve blade LEDs with green, gold, red and blue zones. Your thresholds, car overrides, flash settings, position and scale are preserved. With the housing on, dark endcaps show the resting chevrons; amber indicates an actual alongside report. With the housing off, inactive endcaps disappear.
 
@@ -42,7 +42,7 @@ Under **Telemetry → Demo → Driving scenarios**, click any scenario. Each pre
 
 | Scenario | What to look for |
 |---|---|
-| Cockpit preview | Raised silver gear pod, luminous LEDs, a contextual flag and an amber double-chevron on the right. |
+| Full lights | All LEDs at the shift point, fourth gear, a green event and two cars alongside right. |
 | Normal driving | Mid-range RPM, fourth gear and an empty status well. |
 | Approach shift | A sweep starts just below the selected shift cue and crosses it. |
 | Side by side | A single steady marker at the left edge. |
@@ -52,10 +52,8 @@ Under **Telemetry → Demo → Driving scenarios**, click any scenario. Each pre
 | Pit limiter | LIMITER and a gauge symbol remain visible until disengagement. |
 | Repair required | Black flag with an orange disc and the REPAIR label. |
 | Competing alerts | RPM at the shift cue, both sides occupied, with black ahead of repair, waving yellow, limiter and finish. |
-| Clear conditions | Clear every condition and keep the panel visible at its previous dimensions. |
-| Return to normal | Clear all staged alerts, restore configured indicator visibility and return to the saved scale. |
 
-The scenarios temporarily show all indicator categories. **Test scale** previews 75%, 100% or 150% on the actual strip. Choose **Saved** to return to your configured size. Leaving Demo Mode also restores your display preferences. Use the manual controls below the scenarios for gears, individual flags, two cars on either side, and disconnect/reconnect.
+**Clear alerts** clears flags, limiter and proximity while retaining gear, RPM or sweep, connection, demo look and scale. **Test scale** previews 75%, 100% or 150% on the actual strip. Choose **Saved** to return to your configured size. Live mode uses your configured appearance. The spotter reports left, right, occupied on both sides, two left, or two right. The both-sides state gives no separate counts for those sides.
 
 ## Build and test
 

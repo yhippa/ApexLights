@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 using ApexLights.Core;
@@ -25,7 +24,8 @@ public sealed partial class LedStrip
     private static readonly Geometry Chevron = Freeze(Geometry.Parse("M8,0 H16 L8,12 L16,24 H8 L0,12 Z"));
     private static readonly Geometry Banner = Freeze(Geometry.Parse("M4,1 Q10,-3 17,0 T29,0 L26,17 Q21,21 15,18 T1,18 Z"));
     private static readonly Typeface FlagTypeface = new(new FontFamily("Segoe UI"), FontStyles.Italic, FontWeights.ExtraBold, FontStretches.Normal);
-    private FormattedText? flagLabel, waveCaption;
+    private const double IconLane = 46;
+    private InstrumentText? flagLabel, waveCaption;
 
     private void DrawSide(DrawingContext dc, StripLayout layout, bool left, int count)
     {
@@ -93,13 +93,13 @@ public sealed partial class LedStrip
         }
         dc.DrawRoundedRectangle(critical ? fill : StatusWell, critical ? null : WellEdge, tile, 5, 5);
         if (prominence == FlagProminence.Caution)
-            dc.DrawRoundedRectangle(fill, null, new Rect(0, 0, labeled ? 46 : width, tile.Height), 4, 4);
-        dc.PushTransform(new TranslateTransform(labeled ? 9 : (width - 28) / 2, 8));
+            dc.DrawRoundedRectangle(fill, null, new Rect(0, 0, labeled ? IconLane : width, tile.Height), 4, 4);
+        bool waving = flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution;
+        dc.PushTransform(new TranslateTransform(((labeled ? IconLane : width) - 28) / 2, (tile.Height - (waving ? 26 : 25)) / 2));
         if (indicators.Limiter) dc.DrawGeometry(null, GaugePen, Gauge);
         else DrawFlagSymbol(dc, flag, fill, notice);
         dc.Pop();
-        bool waving = flag is RaceFlag.WavingYellow or RaceFlag.WavingCaution;
-        DrawStatusLabel(dc, label, fill, critical, waving, labeled, tile);
+        if (labeled) DrawStatusLabel(dc, label, fill, critical, waving, tile);
         if (indicators.Accent > 0)
         {
             dc.PushOpacity(indicators.Accent * .22);
@@ -136,25 +136,14 @@ public sealed partial class LedStrip
     private static readonly Pen GreenPole = Freeze(new Pen(FlagGreen, 1.7));
     private static Pen FlagPole(RaceFlag flag) => flag == RaceFlag.Green ? GreenPole : LightEdge;
 
-    private void DrawStatusLabel(DrawingContext dc, string label, Brush fill, bool critical, bool waving, bool labeled, Rect tile)
+    private void DrawStatusLabel(DrawingContext dc, string label, Brush fill, bool critical, bool waving, Rect tile)
     {
-        if (labeled)
-        {
-            double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            if (flagLabel == null || flagLabel.Text != label || flagLabel.PixelsPerDip != dpi)
-                flagLabel = new FormattedText(label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                    FlagTypeface, 18, critical ? Ink : Chalk, dpi);
-            double x = critical ? 45 : 50;
-            if (waving)
-            {
-                if (waveCaption == null || waveCaption.PixelsPerDip != dpi)
-                    waveCaption = new FormattedText("WAVING", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                        FlagTypeface, 10, fill, dpi);
-                double y = (tile.Height - flagLabel.Height - waveCaption.Height) / 2;
-                dc.DrawText(flagLabel, new Point(x, y));
-                dc.DrawText(waveCaption, new Point(x, y + flagLabel.Height));
-            }
-            else dc.DrawText(flagLabel, new Point(x, (tile.Height - flagLabel.Height) / 2));
-        }
+        double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        if (flagLabel == null || !flagLabel.Matches(label, dpi))
+            flagLabel = new InstrumentText(label, FlagTypeface, 18, critical ? Ink : Chalk, dpi);
+        if (waving && (waveCaption == null || !waveCaption.Matches("WAVING", dpi)))
+            waveCaption = new InstrumentText("WAVING", FlagTypeface, 10, fill, dpi);
+        var area = new Rect(IconLane + 8, 5, tile.Width - IconLane - 16, tile.Height - 10);
+        flagLabel.DrawCentered(dc, area, waving ? waveCaption : null);
     }
 }

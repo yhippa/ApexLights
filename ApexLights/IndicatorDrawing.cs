@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 using ApexLights.Core;
@@ -69,7 +68,7 @@ internal readonly struct StripLayout
 public sealed partial class LedStrip
 {
     private IndicatorFrame indicators;
-    private FormattedText? gearText;
+    private InstrumentText? gearText;
     private bool compactGear;
 
     public void DisplayIndicators(IndicatorFrame next)
@@ -98,14 +97,15 @@ public sealed partial class LedStrip
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double scale = Math.Min(ActualWidth / layout.Size.Width, ActualHeight / layout.Size.Height);
         bool compact = options.GearSize * scale * dpi < 20;
-        if (gearText == null || gearText.Text != indicators.Gear || gearText.PixelsPerDip != dpi || compactGear != compact)
+        if (gearText == null || !gearText.Matches(indicators.Gear, dpi) || compactGear != compact)
         {
             compactGear = compact;
-            gearText = new FormattedText(indicators.Gear, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            gearText = new InstrumentText(indicators.Gear,
                 new Typeface(new FontFamily(options.GearFont), FontStyles.Italic,
                     compact ? FontWeights.Black : FontWeights.ExtraBold, FontStretches.Normal),
                 options.GearSize, Brushes.White, dpi);
         }
-        dc.DrawText(gearText, new Point(pod.X + (pod.Width - gearText.Width) / 2 - .5, pod.Y + (pod.Height - gearText.Height) / 2));
+        pod.Inflate(-4, -4);
+        gearText.DrawCentered(dc, pod);
     }
 }
