@@ -51,6 +51,7 @@ public sealed class Runtime : IDisposable
     private bool previousDemo;
     private string? previousCar;
     private Settings? demoAppearance;
+    private bool cockpitPreview;
     private double? sweepFromRpm;
     public Settings Config { get; }
     public Settings Appearance => demoAppearance ?? Config;
@@ -141,7 +142,8 @@ public sealed class Runtime : IDisposable
 
     public void ApplyScenario(DemoScenario scenario)
     {
-        demoAppearance = scenario == DemoScenario.ReturnToNormal ? null : Config.PreviewAllIndicators();
+        cockpitPreview = scenario == DemoScenario.CockpitPreview;
+        demoAppearance = scenario == DemoScenario.ReturnToNormal ? null : Config.PreviewAllIndicators(cockpitPreview);
         DemoSignals.BeginScenario();
         UpdateAppearance();
         RefreshDemo(); // Establish a known quiet sample before staging an actual rising edge.
@@ -165,7 +167,7 @@ public sealed class Runtime : IDisposable
     public void SettingsChanged()
     {
         ManualRpm = Math.Min(ManualRpm, DemoMaximum);
-        if (demoAppearance != null) demoAppearance = Config.PreviewAllIndicators();
+        if (demoAppearance != null) demoAppearance = Config.PreviewAllIndicators(cockpitPreview);
         UpdateAppearance();
         ScheduleSave();
         lastReadout = -1;
@@ -227,7 +229,7 @@ public sealed class Runtime : IDisposable
             double progress = cycle < 5.2 ? cycle / 5.2 : (6 - cycle) / 0.8;
             rpm = Sweep ? floor + (DemoMaximum - floor) * progress : ManualRpm;
         }
-        var frame = engine.Evaluate(rpm, points, Config.Count, Config.Offset, Config.Flash, Config.Hz, seconds);
+        var frame = engine.Evaluate(rpm, points, Appearance.Count, Config.Offset, Config.Flash, Config.Hz, seconds);
         RaceSignal? signal = demo ? DemoSignals.Read() : live?.Signal;
         int? gear = signal?.Gear;
         var indicators = policy.Evaluate(signal, Appearance.Indicators, frame, seconds);

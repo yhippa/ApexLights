@@ -32,10 +32,22 @@ public sealed class Settings
     public Thresholds Demo { get; set; } = Thresholds.Default;
     public Dictionary<string, Thresholds> Cars { get; set; } = new();
 
-    public Settings PreviewAllIndicators()
+    public void ApplyCockpitStyle()
+    {
+        Colors = ["#27FF34", "#FFCB17", "#FF232D", "#00ADFF"];
+        Count = 12; Direction = Progression.LeftToRight; Shape = LensShape.Blade;
+        LensSize = 21; Gap = 5; Brightness = 1; DarkHousing = true;
+        Indicators.ShowGear = Indicators.ShowProximity = Indicators.ShowFlags = true;
+        Indicators.GearPosition = GearPosition.Right; Indicators.GearSize = 40; Indicators.GearFont = "Bahnschrift";
+        Indicators.FlagStyle = FlagStyle.Labeled; Indicators.SideStyle = SideStyle.Chevrons;
+        Indicators.FlagScale = Indicators.SideScale = 1;
+    }
+
+    public Settings PreviewAllIndicators(bool cockpitStyle = false)
     {
         var copy = (Settings)MemberwiseClone();
         copy.Indicators = Indicators.PreviewAll();
+        if (cockpitStyle) copy.ApplyCockpitStyle();
         return copy;
     }
 

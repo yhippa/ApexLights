@@ -12,6 +12,10 @@ A standalone Windows 11 x64 shift-light strip for iRacing. Download **ApexLights
 
 ## Tune the strip
 
+For the mock-up’s cockpit look, choose **Telemetry → Demo → Cockpit preview**. This stages fourth gear, the full LED bank, two cars on the right and a brief green-flag event. It temporarily uses the cockpit palette and geometry. **Return to normal** restores your saved appearance and scale.
+
+To use that appearance in a race, click **Appearance → Apply cockpit preset**. The preset turns on the gear pod, status panel and side indicators, and selects twelve blade LEDs with green, gold, red and blue zones. Your thresholds, car overrides, flash settings, position and scale are preserved. With the housing on, dark endcaps show the resting chevrons; amber indicates an actual alongside report. With the housing off, inactive endcaps disappear.
+
 **Appearance** controls the segment count, shape, dimensions, spacing, four zone colors, fill direction, intensity, opacity, and housing. Use **Inactive LEDs** to set the unlit lens brightness, including fully dark at zero. Disable **Dark strip housing** for transparent space between lenses. **Placement** includes scale, a reset to the primary monitor, and the option to start with settings hidden. Positions use physical desktop coordinates and sizes scale with monitor DPI.
 
 The first LED activates at **First LED**. Progression is evenly spaced up to **Last LED**. Flashing starts at **Shift RPM** by default, even on cars whose shift cue comes before the last LED. Choose **Blink RPM** to follow the car's blink cue or **Off** for steady progression. The RPM offset moves the entire curve earlier or later. Flash frequency is in complete cycles per second.
@@ -38,6 +42,7 @@ Under **Telemetry → Demo → Driving scenarios**, click any scenario. Each pre
 
 | Scenario | What to look for |
 |---|---|
+| Cockpit preview | Raised silver gear pod, luminous LEDs, a contextual flag and an amber double-chevron on the right. |
 | Normal driving | Mid-range RPM, fourth gear and an empty status well. |
 | Approach shift | A sweep starts just below the selected shift cue and crosses it. |
 | Side by side | A single steady marker at the left edge. |

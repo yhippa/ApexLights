@@ -230,6 +230,28 @@ internal static partial class Program
         Assert(policy.Evaluate(demo.Read(), options, default, 13) == new IndicatorFrame("4"), "return clears all warnings");
     }
 
+    private static void CockpitStyle()
+    {
+        var saved = new Settings { Count = 10, X = -1300, Y = 115, Scale = 1.3, Offset = 275,
+            Flash = FlashTrigger.Blink, Hz = 6, DarkHousing = false };
+        saved.Indicators.GearPosition = GearPosition.Center;
+        saved.Indicators.EnabledFlags = RaceFlag.Black;
+        var copy = saved.PreviewAllIndicators(cockpitStyle: true);
+        Assert(copy.Count == 12 && copy.DarkHousing && copy.Indicators.GearSize == 40 &&
+            copy.Indicators.GearPosition == GearPosition.Right && copy.Indicators.ShowFlags, "complete reference look");
+        Assert(saved.Count == 10 && !saved.DarkHousing && saved.Indicators.GearPosition == GearPosition.Center &&
+            !saved.Indicators.ShowFlags && saved.Colors[0] != copy.Colors[0], "preview does not mutate saved options");
+        saved.ApplyCockpitStyle();
+        Assert(saved.X == -1300 && saved.Y == 115 && saved.Scale == 1.3 && saved.Offset == 275 &&
+            saved.Flash == FlashTrigger.Blink && saved.Hz == 6 && saved.Indicators.EnabledFlags == RaceFlag.Black, "style preserves race preferences");
+        var demo = new DemoSignals();
+        demo.BeginScenario();
+        var drive = demo.Apply(DemoScenario.CockpitPreview, Points, 275, FlashTrigger.Blink);
+        var frame = new ShiftLights().Evaluate(drive.Rpm, Points, copy.Count, 275, FlashTrigger.Blink, 6, 0);
+        Assert(demo.Gear == 4 && demo.Spotter == SpotterState.TwoRight && demo.Flags == RaceFlag.Green &&
+            frame == new LightFrame(12, true, true), "reference uses real signal and shift logic");
+    }
+
     private static void ScenarioSettings() => InTemp(path =>
     {
         File.WriteAllText(path, """{"Scale":1.3,"X":-1020,"Y":45,"Indicators":{"ShowGear":true,"EnabledFlags":"Yellow","SideScale":1.4}}""");

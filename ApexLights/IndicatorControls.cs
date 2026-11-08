@@ -21,6 +21,7 @@ public sealed partial class ControlWindow
         Heading("Driving scenarios");
         var buttons = new WrapPanel();
         (string, DemoScenario)[] scenes = [
+            ("Cockpit preview", DemoScenario.CockpitPreview),
             ("Normal driving", DemoScenario.Normal), ("Approach shift", DemoScenario.ApproachShift),
             ("Side by side", DemoScenario.SideBySide), ("Local yellow", DemoScenario.LocalYellow),
             ("Green transition", DemoScenario.GreenTransition), ("Blue flag", DemoScenario.BlueFlag),

@@ -271,6 +271,10 @@ public sealed partial class ControlWindow : Window
 
     private void AppearancePage()
     {
+        var cockpit = new Button { Content = "Apply cockpit preset", HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new(0, 5, 0, 3), ToolTip = "Use neon LEDs, a large right-hand gear pod, side chevrons and the status window." };
+        cockpit.Click += (_, _) => { S.ApplyCockpitStyle(); Changed(); BuildPage(); SetNotice("Cockpit preset applied."); };
+        page.Children.Add(cockpit);
         Heading("LED strip");
         Choices("Segments", ["10", "11", "12"], S.Count - 10, i => { S.Count = 10 + i; Changed(); });
         Choices("Shape", ["Blade", "Round", "Square"], (int)S.Shape, i => { S.Shape = (LensShape)i; Changed(); });

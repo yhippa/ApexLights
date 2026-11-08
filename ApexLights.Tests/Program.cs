@@ -29,6 +29,7 @@ internal static partial class Program
         Run("Reconnect, unavailable input and filters cannot manufacture an event", NoticeBaseline);
         Run("All driving scenarios reconnect, apply thresholds and clear previous inputs", ScenarioInputs);
         Run("Scenario visibility and inactive LED brightness preserve the saved profile", ScenarioSettings);
+        Run("Cockpit preview is isolated and applying its style preserves driving settings", CockpitStyle);
         Run("Gear formatting covers reverse, neutral, forward and unavailable", () =>
             Assert(GearDisplay.Format(-1) == "R" && GearDisplay.Format(0) == "N" && GearDisplay.Format(12) == "12"
                 && GearDisplay.Format(null) == "" && GearDisplay.Format(31) == "", "gear label"));
