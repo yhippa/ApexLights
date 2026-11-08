@@ -23,14 +23,14 @@ When a session is connected, the Telemetry tab shows the current car's values. U
 Open **Indicators** to enable gear, racing flags, or proximity individually. A 1.0 settings file opens with all three disabled and retains its placement, scale, colors and car overrides. Exit the previous copy from the tray before launching a newer build.
 
 - **Gear** shows R, N, or the forward gear. Choose its typeface, size and left, right, or center position. Center placement opens a gap between LED groups and keeps every emitter visible.
-- **Flags** share one slot. Red and black take precedence, followed by repair, waving and steady cautions, then blue, checkered, white and green. Select individual categories and choose a symbol or a labeled flag. Timed notices and cautions expire from their rising edge. A still-raised critical flag that was waiting behind another flag starts its timer when first displayed. **Until clear** keeps it visible while raised. **Dismiss current flag** in settings or the tray silences that occurrence until it clears or the session changes. RPM flashing takes precedence over the optional flag entry animation.
+- **Status panel** reserves one inset area to the right of the LEDs. Enable it in **Indicators** and choose a symbol or a labeled tile. The empty well is the normal state. Red, black and repair take precedence over active cautions, then the pit limiter, then informational and finish notices. A held warning clears as soon as the SDK condition clears. Manual dismissal silences only that occurrence.
 - **Proximity** shows one or two chevrons or lamps at the corresponding edge. Both edges can light together. These are the SDK spotter’s discrete alongside reports. Clear, off, missing and unknown states display no marks.
 
 **Visibility.** Active proximity cues occupy a full amber block at the corresponding edge, and active flags use a high-contrast tile. In **Indicators**, adjust **Side cue size** and **Flag size** independently from 75% to 175%. The strip reserves room for enabled cues, so its LEDs hold their size and position when alerts come and go. For a quick size check in Demo Mode, hold a yellow flag and select **Both**, then try the settings from your driving position.
 
 The SDK spotter gives the side and vehicle count. Its report contains neither the identity of the overlapping car nor its longitudinal offset. Per-car lap progress cannot reliably identify which car triggered a particular side warning in traffic, so the chevrons point sideways. [SDK spotter enum](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_defines.h)
 
-**Status emphasis.** Green, white and checkered start as quiet notices. After 1.5 seconds, a held notice contracts to its icon within the reserved slot. Yellow and blue show a colored flag field and a readable caption. Red, black and repair use the full status tile. Flags clear as soon as their condition ends. One or two steady marks on each side show the SDK spotter count. Only the RPM strip flashes.
+**Events and active conditions.** GREEN and FINISH appear for the configured **Notice duration** on an observed rising edge. A held bit cannot restart that timer. Joining, reconnecting or changing sessions establishes a baseline for events and immediately shows any active warning. WHITE follows the saved timed/until-clear preference. LIMITER uses the pit-speed-limiter bit in the optional EngineWarnings channel and clears when the bit clears. Pit-lane presence and the engine rev limiter do not activate it. RPM, gear and spotter marks have independent regions. [SDK warning bits and flag definitions](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_defines.h)
 
 ## Test a driving situation
 
@@ -38,12 +38,16 @@ Under **Telemetry → Demo → Driving scenarios**, click any scenario. Each pre
 
 | Scenario | What to look for |
 |---|---|
-| Normal driving | Mid-range RPM, fourth gear and a green notice that settles. |
+| Normal driving | Mid-range RPM, fourth gear and an empty status well. |
 | Approach shift | A sweep starts just below the selected shift cue and crosses it. |
 | Side by side | A single steady marker at the left edge. |
 | Local yellow | Waving yellow in the right status slot. |
+| Green transition / Finish | A deliberate clear-to-raised edge displays GREEN or FINISH once, then goes quiet even if the bit stays on. |
+| Blue flag / Black flag | A warning remains visible while the condition is active. |
+| Pit limiter | LIMITER and a gauge symbol remain visible until disengagement. |
 | Repair required | Black flag with an orange disc and the REPAIR label. |
-| Competing alerts | RPM at the shift cue, both sides occupied, with black ahead of repair and waving yellow. |
+| Competing alerts | RPM at the shift cue, both sides occupied, with black ahead of repair, waving yellow, limiter and finish. |
+| Clear conditions | Clear every condition and keep the panel visible at its previous dimensions. |
 | Return to normal | Clear all staged alerts, restore configured indicator visibility and return to the saved scale. |
 
 The scenarios temporarily show all indicator categories. **Test scale** previews 75%, 100% or 150% on the actual strip. Choose **Saved** to return to your configured size. Leaving Demo Mode also restores your display preferences. Use the manual controls below the scenarios for gears, individual flags, two cars on either side, and disconnect/reconnect.
@@ -73,7 +77,7 @@ dotnet publish ApexLights/ApexLights.csproj -c Release -r win-x64 --self-contain
 
 `ApexLights.Core` contains SDK acquisition, shift-light evaluation, and JSON storage. `ApexLights` contains the WPF application, native overlay window, tray, demo source, and a retained drawing surface shared by the strip and its settings preview.
 
-The existing SDK reader samples optional `Gear`, `SessionFlags` and `CarLeftRight` channels from the same tick as RPM. A missing or invalid optional channel clears just its indication. `IndicatorPolicy` tracks flag edges, expiry, dismissal and session identity. It emits a compact frame for the gear, flag and side regions alongside the original shift-light frame. A new SDK attachment, car or session re-arms alerts. Demo Mode supplies the same signal type using local controls.
+The existing SDK reader samples optional `Gear`, `SessionFlags` `CarLeftRight` and `EngineWarnings` channels from the same tick as RPM. A missing or invalid optional channel clears just its indication. `IndicatorPolicy` tracks flag edges, expiry, dismissal and session identity. It emits a compact frame for the gear, flag and side regions alongside the original shift-light frame. A new SDK attachment, car or session re-arms alerts. Demo Mode supplies the same signal type using local controls.
 
 The reader opens the SDK mapping with read access and waits on the data-valid event with synchronization rights. It resolves typed RPM and gear offsets from the variable descriptors, checks bounds, and verifies the buffer tick after sampling. A session revision refreshes driver identity and car-specific thresholds. Verified against the [iRacing SDK header](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_defines.h), [SDK reader](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_utils.cpp), and the [SDK telemetry field list](https://us.v-cdn.net/6034148/uploads/8DD84H30FIC8/telemetry-11-23-15.pdf).
 
