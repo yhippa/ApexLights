@@ -28,7 +28,7 @@ Open **Indicators** to enable gear, racing flags, or proximity individually. A 1
 
 - **Gear** shows R, N, or the forward gear. Choose its typeface, size and left, right, or center position. Center placement opens a gap between LED groups and keeps every emitter visible.
 - **Status panel** reserves one inset area to the right of the LEDs. Enable it in **Indicators** and choose a symbol or a labeled tile. The empty well is the normal state. Red, black and repair take precedence over active cautions, then the pit limiter, then informational and finish notices. A held warning clears as soon as the SDK condition clears. Manual dismissal silences only that occurrence.
-- **Proximity** shows one or two chevrons or lamps at the corresponding edge. Both edges can light together. These are the SDK spotter’s discrete alongside reports. Clear, off, missing and unknown states display no marks.
+- **Proximity** shows one or two chevrons or lamps at the corresponding edge. Both edges can light together. These are the SDK spotter’s discrete alongside reports. Clear, off, missing and unknown states show only the dark resting endcap when the housing is enabled.
 
 **Visibility.** Active proximity cues occupy a full amber block at the corresponding edge, and active flags use a high-contrast tile. In **Indicators**, adjust **Side cue size** and **Flag size** independently from 75% to 175%. The strip reserves room for enabled cues, so its LEDs hold their size and position when alerts come and go. For a quick size check in Demo Mode, hold a yellow flag and select **Both**, then try the settings from your driving position.
 

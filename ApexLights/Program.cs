@@ -158,6 +158,14 @@ public sealed class Runtime : IDisposable
 
     public void DismissFlag() { policy.Dismiss(); Tick(); }
 
+    public void ApplyCockpitPreset()
+    {
+        Config.ApplyCockpitStyle();
+        cockpitPreview = false;
+        demoAppearance = null;
+        SettingsChanged();
+    }
+
     private void UpdateFeed()
     {
         if (Config.Source != SourceMode.Demo) feed ??= new();
