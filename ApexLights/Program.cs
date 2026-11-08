@@ -180,10 +180,9 @@ public sealed class Runtime : IDisposable
         else { feed?.Dispose(); feed = null; }
     }
 
-    public void SettingsChanged(bool editingSavedLook = false)
+    public void SettingsChanged()
     {
         ManualRpm = Math.Min(ManualRpm, DemoMaximum);
-        if (editingSavedLook) DemoUsesCockpit = false;
         if (demoAppearance != null) demoAppearance = DemoUsesCockpit ? Config.PreviewAllIndicators(cockpitStyle: true) : null;
         UpdateAppearance();
         ScheduleSave();

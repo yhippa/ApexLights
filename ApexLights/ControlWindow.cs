@@ -201,7 +201,7 @@ public sealed partial class ControlWindow : Window
         return box;
     }
 
-    private void Changed() => app.SettingsChanged(editingSavedLook: demo && tab is 1 or 3);
+    private void Changed() => app.SettingsChanged();
 
     private void TelemetryPage()
     {
@@ -271,6 +271,7 @@ public sealed partial class ControlWindow : Window
 
     private void AppearancePage()
     {
+        if (demo) DemoLookPicker();
         var cockpit = new Button { Content = "Apply cockpit preset", HorizontalAlignment = HorizontalAlignment.Left,
             Margin = new(0, 5, 0, 3), ToolTip = "Use neon LEDs, a large right-hand gear pod, side chevrons and the status window." };
         cockpit.Click += (_, _) => { app.ApplyCockpitPreset(); BuildPage(); SetNotice("Cockpit preset applied."); };

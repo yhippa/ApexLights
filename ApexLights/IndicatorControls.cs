@@ -16,11 +16,16 @@ public sealed partial class ControlWindow
         ("Blue", RaceFlag.Blue), ("White", RaceFlag.White), ("Checkered", RaceFlag.Checkered), ("Green", RaceFlag.Green)
     ];
 
+    private void DemoLookPicker()
+    {
+        Choices("Demo look", ["Cockpit", "My setup"], app.DemoUsesCockpit ? 0 : 1, i => app.SetDemoLook(i == 0));
+        Hint("Cockpit uses the neon preset. Choose My setup to preview edits to your driving appearance.");
+    }
+
     private void DemoScenarios()
     {
         Heading("Driving scenarios");
-        Choices("Demo look", ["Cockpit", "My setup"], app.DemoUsesCockpit ? 0 : 1, i => app.SetDemoLook(i == 0));
-        Hint("Cockpit uses the neon preset. My setup shows your saved driving appearance.");
+        DemoLookPicker();
         var buttons = new WrapPanel();
         (string, DemoScenario)[] scenes = [
             ("Full lights", DemoScenario.FullLights),
@@ -90,6 +95,7 @@ public sealed partial class ControlWindow
 
     private void IndicatorsPage()
     {
+        if (demo) DemoLookPicker();
         var options = S.Indicators;
         Heading("Gear");
         Check("Show gear", options.ShowGear, value => { options.ShowGear = value; Changed(); });
