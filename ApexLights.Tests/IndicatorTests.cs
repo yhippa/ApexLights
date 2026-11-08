@@ -226,8 +226,8 @@ internal static partial class Program
         Assert(policy.Evaluate(demo.Read(), options, lights, 11).Flag == RaceFlag.Repair, "next critical");
         Stage(DemoScenario.Competing);
         Assert(policy.Evaluate(demo.Read(), options, lights, 12).Flag == RaceFlag.Black, "repeat starts a fresh occurrence");
-        Stage(DemoScenario.ReturnToNormal);
-        Assert(policy.Evaluate(demo.Read(), options, default, 13) == new IndicatorFrame("4"), "return clears all warnings");
+        demo.ClearAlerts(); policy.Reset();
+        Assert(policy.Evaluate(demo.Read(), options, default, 13) == new IndicatorFrame("5"), "clear removes alerts and retains gear");
     }
 
     private static void CockpitStyle()
@@ -246,10 +246,22 @@ internal static partial class Program
             saved.Flash == FlashTrigger.Blink && saved.Hz == 6 && saved.Indicators.EnabledFlags == RaceFlag.Black, "style preserves race preferences");
         var demo = new DemoSignals();
         demo.BeginScenario();
-        var drive = demo.Apply(DemoScenario.CockpitPreview, Points, 275, FlashTrigger.Blink);
+        var drive = demo.Apply(DemoScenario.FullLights, Points, 275, FlashTrigger.Blink);
         var frame = new ShiftLights().Evaluate(drive.Rpm, Points, copy.Count, 275, FlashTrigger.Blink, 6, 0);
         Assert(demo.Gear == 4 && demo.Spotter == SpotterState.TwoRight && demo.Flags == RaceFlag.Green &&
             frame == new LightFrame(12, true, true), "reference uses real signal and shift logic");
+    }
+
+    private static void ClearAlertsOnly()
+    {
+        var demo = new DemoSignals { Gear = -1, Flags = RaceFlag.Checkered | RaceFlag.Blue,
+            PitLimiter = true, Spotter = SpotterState.Both };
+        var key = demo.Read()!.Value.Session;
+        demo.ClearAlerts();
+        Assert(demo.Read() == new RaceSignal(-1, 0, SpotterState.Clear, key), "clear preserves session, gear and connection");
+        demo.SetConnection(false);
+        demo.ClearAlerts();
+        Assert(!demo.Connected && demo.Gear == -1, "clear does not reconnect a disconnected demo");
     }
 
     private static void ScenarioSettings() => InTemp(path =>

@@ -1,7 +1,7 @@
 namespace ApexLights.Core;
 
-public enum DemoScenario { Normal, ApproachShift, SideBySide, LocalYellow, Repair, Competing, ReturnToNormal,
-    GreenTransition, BlueFlag, BlackFlag, PitLimiter, Finish, ClearConditions, CockpitPreview }
+public enum DemoScenario { Normal, ApproachShift, SideBySide, LocalYellow, Repair, Competing,
+    GreenTransition, BlueFlag, BlackFlag, PitLimiter, Finish, FullLights }
 public readonly record struct DemoDrive(double Rpm, bool Sweep);
 
 // Ephemeral simulator inputs. A reconnect or a new session re-arms active alerts.
@@ -28,6 +28,11 @@ public sealed class DemoSignals
     {
         Connected = true;
         NewSession();
+        ClearAlerts();
+    }
+
+    public void ClearAlerts()
+    {
         Flags = RaceFlag.None;
         Spotter = SpotterState.Clear;
         PitLimiter = false;
@@ -39,7 +44,7 @@ public sealed class DemoSignals
         (Gear, Flags, Spotter) = scenario switch
         {
             DemoScenario.GreenTransition => (4, RaceFlag.Green, SpotterState.Clear),
-            DemoScenario.CockpitPreview => (4, RaceFlag.Green, SpotterState.TwoRight),
+            DemoScenario.FullLights => (4, RaceFlag.Green, SpotterState.TwoRight),
             DemoScenario.BlueFlag => (4, RaceFlag.Blue, SpotterState.Clear),
             DemoScenario.BlackFlag => (3, RaceFlag.Black, SpotterState.Clear),
             DemoScenario.PitLimiter => (2, RaceFlag.None, SpotterState.Clear),
@@ -56,7 +61,7 @@ public sealed class DemoSignals
         {
             DemoScenario.ApproachShift => shift - (points.Last - points.First) * .08,
             DemoScenario.Competing => shift,
-            DemoScenario.CockpitPreview => System.Math.Max(points.Last, shift),
+            DemoScenario.FullLights => System.Math.Max(points.Last, shift),
             DemoScenario.Repair => points.First * .91,
             _ => points.First + (points.Last - points.First) * .55
         };

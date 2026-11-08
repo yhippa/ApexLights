@@ -201,7 +201,7 @@ public sealed partial class ControlWindow : Window
         return box;
     }
 
-    private void Changed() => app.SettingsChanged();
+    private void Changed() => app.SettingsChanged(editingSavedLook: demo && tab is 1 or 3);
 
     private void TelemetryPage()
     {

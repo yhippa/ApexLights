@@ -51,7 +51,7 @@ public sealed class Runtime : IDisposable
     private bool previousDemo;
     private string? previousCar;
     private Settings? demoAppearance;
-    private bool cockpitPreview;
+    public bool DemoUsesCockpit { get; private set; } = true;
     private double? sweepFromRpm;
     public Settings Config { get; }
     public Settings Appearance => demoAppearance ?? Config;
@@ -127,7 +127,6 @@ public sealed class Runtime : IDisposable
     public void SetSource(SourceMode mode)
     {
         Overlay.PreviewAtScale(null);
-        if (demoAppearance != null) { demoAppearance = null; UpdateAppearance(); }
         Config.Source = mode;
         policy.Reset();
         receivedLive = false;
@@ -140,18 +139,28 @@ public sealed class Runtime : IDisposable
 
     public void RefreshDemo() { lastReadout = -1; Tick(); }
 
+    public void SetDemoLook(bool cockpit)
+    {
+        DemoUsesCockpit = cockpit;
+        RefreshDemo();
+    }
+
+    public void ClearDemoAlerts()
+    {
+        DemoSignals.ClearAlerts();
+        policy.Reset();
+        RefreshDemo();
+        controls?.RefreshSourceSelection();
+    }
+
     public void ApplyScenario(DemoScenario scenario)
     {
-        cockpitPreview = scenario == DemoScenario.CockpitPreview;
-        demoAppearance = scenario == DemoScenario.ReturnToNormal ? null : Config.PreviewAllIndicators(cockpitPreview);
         DemoSignals.BeginScenario();
-        UpdateAppearance();
         RefreshDemo(); // Establish a known quiet sample before staging an actual rising edge.
         var drive = DemoSignals.Apply(scenario, Config.Demo, Config.Offset, Config.Flash);
         ManualRpm = Math.Min(drive.Rpm, DemoMaximum);
         Sweep = drive.Sweep;
         sweepFromRpm = drive.Sweep ? ManualRpm : null;
-        if (scenario == DemoScenario.ReturnToNormal) Overlay.PreviewAtScale(null);
         RefreshDemo();
         controls?.RefreshSourceSelection();
     }
@@ -161,8 +170,7 @@ public sealed class Runtime : IDisposable
     public void ApplyCockpitPreset()
     {
         Config.ApplyCockpitStyle();
-        cockpitPreview = false;
-        demoAppearance = null;
+        DemoUsesCockpit = false;
         SettingsChanged();
     }
 
@@ -172,10 +180,11 @@ public sealed class Runtime : IDisposable
         else { feed?.Dispose(); feed = null; }
     }
 
-    public void SettingsChanged()
+    public void SettingsChanged(bool editingSavedLook = false)
     {
         ManualRpm = Math.Min(ManualRpm, DemoMaximum);
-        if (demoAppearance != null) demoAppearance = Config.PreviewAllIndicators(cockpitPreview);
+        if (editingSavedLook) DemoUsesCockpit = false;
+        if (demoAppearance != null) demoAppearance = DemoUsesCockpit ? Config.PreviewAllIndicators(cockpitStyle: true) : null;
         UpdateAppearance();
         ScheduleSave();
         lastReadout = -1;
@@ -208,11 +217,12 @@ public sealed class Runtime : IDisposable
         var points = live == null ? Config.Demo : Config.Cars.GetValueOrDefault(live.Car.Key, live.Car.Points);
         double seconds = time.Elapsed.TotalSeconds;
         bool demoOnline = demo && DemoSignals.Connected;
-        if (!demo)
+        if ((demo && DemoUsesCockpit) != (demoAppearance != null))
         {
-            Overlay.PreviewAtScale(null);
-            if (demoAppearance != null) { demoAppearance = null; UpdateAppearance(); }
+            demoAppearance = demo && DemoUsesCockpit ? Config.PreviewAllIndicators(cockpitStyle: true) : null;
+            UpdateAppearance();
         }
+        if (!demo) Overlay.PreviewAtScale(null);
         string? car = live?.Car.Key;
         if (car != previousCar || demoOnline != previousDemo)
         {

@@ -30,6 +30,7 @@ internal static partial class Program
         Run("All driving scenarios reconnect, apply thresholds and clear previous inputs", ScenarioInputs);
         Run("Scenario visibility and inactive LED brightness preserve the saved profile", ScenarioSettings);
         Run("Cockpit preview is isolated and applying its style preserves driving settings", CockpitStyle);
+        Run("Clearing alerts preserves demo gear, session and connection", ClearAlertsOnly);
         Run("Gear formatting covers reverse, neutral, forward and unavailable", () =>
             Assert(GearDisplay.Format(-1) == "R" && GearDisplay.Format(0) == "N" && GearDisplay.Format(12) == "12"
                 && GearDisplay.Format(null) == "" && GearDisplay.Format(31) == "", "gear label"));

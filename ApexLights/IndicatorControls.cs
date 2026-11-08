@@ -19,16 +19,17 @@ public sealed partial class ControlWindow
     private void DemoScenarios()
     {
         Heading("Driving scenarios");
+        Choices("Demo look", ["Cockpit", "My setup"], app.DemoUsesCockpit ? 0 : 1, i => app.SetDemoLook(i == 0));
+        Hint("Cockpit uses the neon preset. My setup shows your saved driving appearance.");
         var buttons = new WrapPanel();
         (string, DemoScenario)[] scenes = [
-            ("Cockpit preview", DemoScenario.CockpitPreview),
+            ("Full lights", DemoScenario.FullLights),
             ("Normal driving", DemoScenario.Normal), ("Approach shift", DemoScenario.ApproachShift),
             ("Side by side", DemoScenario.SideBySide), ("Local yellow", DemoScenario.LocalYellow),
             ("Green transition", DemoScenario.GreenTransition), ("Blue flag", DemoScenario.BlueFlag),
             ("Black flag", DemoScenario.BlackFlag), ("Repair required", DemoScenario.Repair),
             ("Pit limiter", DemoScenario.PitLimiter), ("Finish", DemoScenario.Finish),
-            ("Competing alerts", DemoScenario.Competing), ("Clear conditions", DemoScenario.ClearConditions),
-            ("Return to normal", DemoScenario.ReturnToNormal)];
+            ("Competing alerts", DemoScenario.Competing)];
         foreach (var (label, scenario) in scenes)
         {
             var button = new Button { Content = label, Margin = new(0, 0, 5, 5), Padding = new(10, 5, 10, 5) };
@@ -36,7 +37,10 @@ public sealed partial class ControlWindow
             buttons.Children.Add(button);
         }
         page.Children.Add(buttons);
-        Hint("Scenarios preview all indicators. Return to normal clears alerts and restores your indicator choices.");
+        var clear = new Button { Content = "Clear alerts", HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 4, 0, 4),
+            ToolTip = "Clear flags, limiter and alongside alerts. Keep the current gear, RPM and scale." };
+        clear.Click += (_, _) => app.ClearDemoAlerts();
+        page.Children.Add(clear);
         double?[] scales = [null, .75, 1, 1.5];
         Choices("Test scale", ["Saved", "75%", "100%", "150%"], Array.IndexOf(scales, app.Overlay.PreviewScale),
             i => app.Overlay.PreviewAtScale(scales[i]));
@@ -100,7 +104,7 @@ public sealed partial class ControlWindow
         Check("Show cars alongside", options.ShowProximity, value => { options.ShowProximity = value; Changed(); });
         Choices("Side marks", ["Chevrons", "Lamps"], (int)options.SideStyle, i => { options.SideStyle = (SideStyle)i; Changed(); });
         Range("Side cue size", .75, 1.75, options.SideScale, .05, n => $"{n:P0}", n => { options.SideScale = n; Changed(); });
-        Hint("One or two marks show the spotter’s count on each side. The spotter reports lateral overlap only.");
+        Hint("Both means each side is occupied. The spotter can report two left or two right, but gives no count for both sides together.");
 
         Heading("Status panel");
         Check("Show status panel", options.ShowFlags, value => { options.ShowFlags = value; Changed(); });
