@@ -13,7 +13,7 @@ public sealed partial class LedStrip
     private static readonly Brush GearPod = Finish("#373A3F", "#1D1F22", "#0C0D0F"), Operational = Solid("#ACDED6");
     private static readonly Pen PodRim = Freeze(new Pen(Finish("#F2F3F3", "#B8B9BC", "#636569"), 2));
     private static Pen WellEdge => RecessEdge;
-    private static readonly Brush CapOff = Finish("#303236", "#202225", "#121416"), MarkOff = Solid("#474A4F");
+    private static readonly Brush CapOff = Finish("#282B2E", "#1F2124", "#151719"), MarkOff = Solid("#41444A");
     private static readonly Brush CapOn = Finish("#FFE133", "#FFCB0A", "#FFB808");
     private static readonly Pen CapRim = Freeze(new Pen(Finish("#FFF18B", "#DC9B00", "#754A04"), 1.0));
     private static readonly Pen GaugePen = Freeze(new Pen(Operational, 2.4));
@@ -23,7 +23,7 @@ public sealed partial class LedStrip
     private static readonly Pen DarkEdge = Freeze(new Pen(Ink, 1.8)), LightEdge = Freeze(new Pen(Chalk, 2));
     private static readonly Geometry Chevron = Freeze(Geometry.Parse("M8,0 H16 L8,12 L16,24 H8 L0,12 Z"));
     private static readonly Geometry Banner = Freeze(Geometry.Parse("M4,1 Q10,-3 17,0 T29,0 L26,17 Q21,21 15,18 T1,18 Z"));
-    private static readonly Typeface FlagTypeface = new(new FontFamily("Segoe UI"), FontStyles.Italic, FontWeights.ExtraBold, FontStretches.Normal);
+    private static readonly Typeface FlagTypeface = new(new FontFamily("Segoe UI Variable, Segoe UI"), FontStyles.Italic, FontWeights.Bold, FontStretches.Normal);
     private const double IconLane = 46;
     private InstrumentText? flagLabel, waveCaption;
 
@@ -62,7 +62,7 @@ public sealed partial class LedStrip
         dc.Pop();
     }
 
-    private static (Brush Tile, string Label) FlagArt(RaceFlag flag) => flag switch
+    internal static (Brush Tile, string Label) FlagArt(RaceFlag flag) => flag switch
     {
         RaceFlag.Green => (FlagGreen, "GREEN"), RaceFlag.Red => (FlagRed, "RED"),
         RaceFlag.Black => (Chalk, "BLACK"), RaceFlag.Repair => (Orange, "REPAIR"),
@@ -110,7 +110,7 @@ public sealed partial class LedStrip
         dc.Pop();
     }
 
-    private static void DrawFlagSymbol(DrawingContext dc, RaceFlag flag, Brush fill, bool notice)
+    internal static void DrawFlagSymbol(DrawingContext dc, RaceFlag flag, Brush fill, bool notice)
     {
         Pen edge = notice ? FlagPole(flag) : DarkEdge;
         dc.DrawLine(edge, new Point(4, 1), new Point(0, 25));

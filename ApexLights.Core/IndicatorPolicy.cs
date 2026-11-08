@@ -47,12 +47,14 @@ public sealed class IndicatorPolicy
     private readonly Alert[] alerts = new Alert[Order.Length];
     private SessionKey? session;
     private int displayed = -1;
+    public RaceFlag FloatingFlag { get; private set; }
 
     public void Reset()
     {
         session = null;
         Array.Clear(alerts);
         displayed = -1;
+        FloatingFlag = RaceFlag.None;
     }
 
     public void Dismiss()
@@ -74,7 +76,7 @@ public sealed class IndicatorPolicy
             RaceFlag flag = Order[i];
             bool limiter = flag == RaceFlag.None;
             bool enabled = limiter ? options.IncludeLimiter : signal.FlagsAvailable && (flag & options.EnabledFlags) != 0;
-            if (!options.ShowFlags || !enabled) { alerts[i] = default; continue; }
+            if (!(options.ShowFlags || options.FloatingFlag) || !enabled) { alerts[i] = default; continue; }
 
             bool edgeEvent = flag is RaceFlag.Green or RaceFlag.Checkered;
             bool timed = edgeEvent || (flag == RaceFlag.White && options.FlagLifetime == FlagLifetime.Timed);
@@ -83,8 +85,10 @@ public sealed class IndicatorPolicy
             if (displayed < 0 && alerts[i].Visible) displayed = i;
         }
 
-        var (left, right) = options.ShowProximity ? Sides(signal.Spotter) : (0, 0);
+        var (left, right) = options.ShowProximity || options.PeripheralBands ? Sides(signal.Spotter) : (0, 0);
         RaceFlag selected = displayed < 0 ? RaceFlag.None : Order[displayed];
+        FloatingFlag = displayed >= 0 && options.FloatingFlag && seconds - alerts[displayed].Began < options.AlertSeconds &&
+            Prominence(selected) is FlagProminence.Critical or FlagProminence.Caution ? selected : RaceFlag.None;
         int accent = 0;
         if (displayed >= 0 && options.AnimateEntry && !lights.Flashing &&
             Prominence(selected) is FlagProminence.Critical or FlagProminence.Caution)

@@ -17,6 +17,9 @@ internal static partial class Program
     private static void Main(string[] args)
     {
         Run("Simultaneous alerts preserve gear and both sides during a shift", Priority);
+        Run("Old settings migrate and Fluent theme, preview and cue preferences persist", FluentSettings);
+        Run("Floating flag duration and peripheral warnings work independently from strip slots", RemoteCues);
+        Run("Cue placement on four resolutions and four DPI scales", CueCoordinates);
         Run("Flags expire, clear, dismiss and re-arm by edge", Transitions);
         Run("All seven discrete spotter states activate and clear", Proximity);
         Run("Disconnect, new session and disabled categories reset alert state", SessionChanges);

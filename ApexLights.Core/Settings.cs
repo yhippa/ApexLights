@@ -7,9 +7,14 @@ using System.Text.Json.Serialization;
 
 namespace ApexLights.Core;
 
+public enum SettingsTheme { Dark, Light }
+public enum PreviewBackdrop { Dark, Light }
+
 public sealed class Settings
 {
     public IndicatorSettings Indicators { get; set; } = new();
+    public SettingsTheme Theme { get; set; } = SettingsTheme.Dark;
+    public PreviewBackdrop Backdrop { get; set; } = PreviewBackdrop.Dark;
     public int Count { get; set; } = 12;
     public string[] Colors { get; set; } = DefaultColors();
     public static string[] DefaultColors() => ["#43EC86", "#FFCF46", "#FF513D", "#479BFF"];
@@ -57,6 +62,8 @@ public sealed class Settings
             double.IsFinite(n) ? Math.Clamp(n, low, high) : fallback;
         Indicators ??= new();
         Indicators.Normalize();
+        if (!Enum.IsDefined(Theme)) Theme = SettingsTheme.Dark;
+        if (!Enum.IsDefined(Backdrop)) Backdrop = PreviewBackdrop.Dark;
         Count = Math.Clamp(Count, 10, 12);
         Gap = Limit(Gap, 1, 14, 5);
         LensSize = Limit(LensSize, 12, 44, 25);

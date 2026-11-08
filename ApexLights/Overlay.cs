@@ -55,7 +55,7 @@ public sealed class Overlay : Window
         {
             resizeDelta += e.HorizontalChange;
             PreviewScale = null;
-            settings.Scale = Math.Clamp((resizeOrigin + resizeDelta) / LedStrip.Footprint(appearance).Width, 0.5, 2.5);
+            settings.Scale = Math.Clamp((resizeOrigin + resizeDelta) / LedStrip.Footprint(settings).Width, 0.5, 2.5);
             ApplySize();
             changed();
         };
@@ -84,9 +84,11 @@ public sealed class Overlay : Window
     public void ApplySize(Settings? display = null)
     {
         if (display != null) appearance = display;
-        Size size = LedStrip.Footprint(appearance);
+        // Reserve one viewport for both profiles. Source changes only fit the artwork inside it.
+        Size size = LedStrip.Footprint(settings);
+        Size cockpit = LedStrip.Footprint(settings.PreviewAllIndicators(cockpitStyle: true));
         Width = size.Width * (PreviewScale ?? settings.Scale);
-        Height = size.Height * (PreviewScale ?? settings.Scale);
+        Height = Math.Max(size.Height, size.Width * cockpit.Height / cockpit.Width) * (PreviewScale ?? settings.Scale);
         Opacity = settings.Opacity;
         Strip.Configure(appearance);
     }
@@ -147,6 +149,13 @@ public sealed class Overlay : Window
         settings.X = rect.Left;
         settings.Y = rect.Top;
         changed();
+    }
+
+    public void CheckMonitor()
+    {
+        if (!placed || !GetWindowRect(hwnd,out var bounds)) return;
+        var rect = Drawing.Rectangle.FromLTRB(bounds.Left,bounds.Top,bounds.Right,bounds.Bottom);
+        if (!Forms.Screen.FromRectangle(rect).WorkingArea.Contains(rect)) Place(bounds.Left,bounds.Top);
     }
 
     [StructLayout(LayoutKind.Sequential)] private struct Bounds { public int Left, Top, Right, Bottom; }

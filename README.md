@@ -6,39 +6,47 @@ A standalone Windows 11 x64 shift-light strip for iRacing. Download **ApexLights
 
 1. On first launch, **Automatic** runs a demo sweep while it waits for iRacing. The floating strip is the driving overlay. The larger window is its settings panel.
 2. Click **Edit overlay** or press **Ctrl + Alt + L**. Drag the strip to your preferred monitor and drag its lower-right grip to resize it. Click **Lock overlay** or press the shortcut again. The locked strip passes mouse input through to the window beneath it.
-3. For manual testing, choose **Telemetry → Demo** and move **Manual RPM**. Moving the slider stops the sweep. Set the four RPM values and click **Apply thresholds**, or turn the sweep back on. To open directly in Demo Mode from PowerShell, run `.\ApexLights.exe --demo` from the executable's folder.
+3. For manual testing, choose **Demo / Testing → Input → Demo** and move **Manual RPM**. Moving the slider stops the sweep. Set the four RPM values and click **Apply thresholds**, or turn the sweep back on. To open directly in Demo Mode from PowerShell, run `.\ApexLights.exe --demo` from the executable's folder.
 4. For racing, select **Automatic** or **iRacing**, then run the simulator in borderless-windowed mode. **Automatic** switches to live data when the first valid session arrives. After a live disconnect, both modes extinguish the LEDs and wait to reconnect. The **Demo** selection stays in simulation until you change it.
 5. **Hide settings** or close the settings window for an LED-only view. Double-click the ApexLights tray icon or launch the executable again to reopen settings. Right-click the tray icon for **Exit ApexLights**.
 
+## Settings and preview
+
+The six settings sections share one live preview. In **Overlay Appearance → Theme**, choose **Dark** (default) or **Light**. The **Dark track / Light track** selector above the preview lets you test contrast independently of the settings theme. Both choices are saved. Expanding the thresholds and individual flags reveals finer controls.
+
+Settings uses the Fluent controls included in .NET 10 WPF. Its system accent, keyboard focus and high-contrast resources apply to the settings window. The HUD draws its own materials and optics. [Microsoft's WPF Fluent theme](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/whats-new/net90)
+
 ## Tune the strip
 
-In **Telemetry → Demo**, the **Demo look** applies to every scenario and the manual controls. **Cockpit** is the default and uses the neon palette; **My setup** previews your saved driving appearance. Switching scenarios changes only the simulated inputs. **Full lights** stages fourth gear, the full LED bank, two cars on the right, and a brief green-flag event.
+In **Demo / Testing → Input → Demo**, the **Demo look** applies to every scenario and the manual controls. **Cockpit** is the default and uses the neon palette; **My setup** previews your saved driving appearance. Switching scenarios changes only the simulated inputs. **Full lights** stages fourth gear, the full LED bank, two cars on the right, and a brief green-flag event.
 
-To use that appearance in a race, click **Appearance → Apply cockpit preset**. The preset turns on the gear pod, status panel and side indicators, and selects twelve blade LEDs with green, gold, red and blue zones. Your thresholds, car overrides, flash settings, position and scale are preserved. With the housing on, dark endcaps show the resting chevrons; amber indicates an actual alongside report. With the housing off, inactive endcaps disappear.
+To use that appearance in a race, click **Overlay Appearance → Apply cockpit preset**. The preset turns on the gear pod, status panel and side indicators, and selects twelve blade LEDs with green, gold, red and blue zones. Your thresholds, car overrides, flash settings, position and scale are preserved. With the housing on, dark endcaps show the resting chevrons; amber indicates an actual alongside report. With the housing off, inactive endcaps disappear.
 
-**Appearance** controls the segment count, shape, dimensions, spacing, four zone colors, fill direction, intensity, opacity, and housing. Use **Inactive LEDs** to set the unlit lens brightness, including fully dark at zero. Disable **Dark strip housing** for transparent space between lenses. **Placement** includes scale, a reset to the primary monitor, and the option to start with settings hidden. Positions use physical desktop coordinates and sizes scale with monitor DPI.
+**Shift Lights** controls the segment count, shape, lens dimensions, spacing, four zone colors, fill direction, intensity, and flash behavior. Use **Inactive LEDs** to set the unlit lens brightness, including fully dark at zero. In **Overlay Appearance**, disable **Dark strip housing** for transparent space between lenses. The same page includes scale, a reset to the primary monitor, and the option to start with settings hidden. Positions use physical desktop coordinates and sizes scale with monitor DPI.
 
 The first LED activates at **First LED**. Progression is evenly spaced up to **Last LED**. Flashing starts at **Shift RPM** by default, even on cars whose shift cue comes before the last LED. Choose **Blink RPM** to follow the car's blink cue or **Off** for steady progression. The RPM offset moves the entire curve earlier or later. Flash frequency is in complete cycles per second.
 
-When a session is connected, the Telemetry tab shows the current car's values. Use **Save car override** to retain a profile for that car and **Use car defaults** to remove it. Missing or inconsistent fields are repaired individually using the car's redline or its available shift values. Settings are saved to `%LOCALAPPDATA%\ApexLights\settings.json`.
+When a session is connected, **Demo / Testing** shows the current car's values. Use **Save car override** to retain a profile for that car and **Use car defaults** to remove it. Missing or inconsistent fields are repaired individually using the car's redline or its available shift values. Settings are saved to `%LOCALAPPDATA%\ApexLights\settings.json`.
 
 ## Race awareness
 
-Open **Indicators** to enable gear, racing flags, or proximity individually. A 1.0 settings file opens with all three disabled and retains its placement, scale, colors and car overrides. Exit the previous copy from the tray before launching a newer build.
+Open **Gear Indicator**, **Racing Flags**, or **Proximity Awareness** to configure each channel. A 1.0 settings file opens with all three disabled and retains its placement, scale, colors and car overrides. Exit the previous copy from the tray before launching a newer build.
 
 - **Gear** shows R, N, or the forward gear. Choose its typeface, size and left, right, or center position. Center placement opens a gap between LED groups and keeps every emitter visible.
-- **Status panel** reserves one inset area to the right of the LEDs. Enable it in **Indicators** and choose a symbol or a labeled tile. The empty well is the normal state. Red, black and repair take precedence over active cautions, then the pit limiter, then informational and finish notices. A held warning clears as soon as the SDK condition clears. Manual dismissal silences only that occurrence.
+- **Status panel** reserves one inset area to the right of the LEDs. Enable it in **Racing Flags** and choose a symbol or a labeled tile. The empty well is the normal state. Red, black and repair take precedence over active cautions, then the pit limiter, then informational and finish notices. A held warning clears as soon as the SDK condition clears. Manual dismissal silences only that occurrence.
 - **Proximity** shows one or two chevrons or lamps at the corresponding edge. Both edges can light together. These are the SDK spotter’s discrete alongside reports. Clear, off, missing and unknown states show only the dark resting endcap when the housing is enabled.
 
-**Visibility.** Active proximity cues occupy a full amber block at the corresponding edge, and active flags use a high-contrast tile. In **Indicators**, adjust **Side cue size** and **Flag size** independently from 75% to 175%. The strip reserves room for enabled cues, so its LEDs hold their size and position when alerts come and go. For a quick size check in Demo Mode, hold a yellow flag and select **Both**, then try the settings from your driving position.
+**Visibility.** Active proximity cues occupy a full amber block at the corresponding edge, and active flags use a high-contrast tile. In their respective sections, adjust **Side cue size** and **Flag size** independently from 75% to 175%. The strip reserves room for enabled cues, so its LEDs hold their size and position when alerts come and go. For a quick size check in Demo Mode, hold a yellow flag and select **Both**, then try the settings from your driving position.
 
 The SDK spotter gives the side and vehicle count. Its report contains neither the identity of the overlapping car nor its longitudinal offset. Per-car lap progress cannot reliably identify which car triggered a particular side warning in traffic, so the chevrons point sideways. [SDK spotter enum](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_defines.h)
+
+**Peripheral cues.** Enable **Proximity Awareness → Show peripheral bands** for large amber side markers on the strip's monitor. **Edge inset** moves them toward the center on wide monitors. Enable **Racing Flags → Show floating flag** for a translucent flag near the forward view. A new caution or critical warning appears there for the notice duration, or until it clears. A held warning remains available in the strip. Adjust position, size, and shared cue opacity in those sections. Both options start off for saved driving setups. The **Cockpit** demo enables them so **Competing alerts** shows both bands and a central flag together.
 
 **Events and active conditions.** GREEN and FINISH appear for the configured **Notice duration** on an observed rising edge. A held bit cannot restart that timer. Joining, reconnecting or changing sessions establishes a baseline for events and immediately shows any active warning. WHITE follows the saved timed/until-clear preference. LIMITER uses the pit-speed-limiter bit in the optional EngineWarnings channel and clears when the bit clears. Pit-lane presence and the engine rev limiter do not activate it. RPM, gear and spotter marks have independent regions. [SDK warning bits and flag definitions](https://github.com/SIMRacingApps/SIMRacingAppsSIMPluginiRacing/blob/master/irsdk/irsdk_defines.h)
 
 ## Test a driving situation
 
-Under **Telemetry → Demo → Driving scenarios**, click any scenario. Each press stages a fresh occurrence. All scenarios use the current thresholds, RPM offset, styles and priority logic.
+In **Demo / Testing**, select **Demo** for the input. Under **Driving scenarios**, click any scenario. Each press stages a fresh occurrence. All scenarios use the current thresholds, RPM offset, styles and priority logic.
 
 | Scenario | What to look for |
 |---|---|
@@ -53,7 +61,7 @@ Under **Telemetry → Demo → Driving scenarios**, click any scenario. Each pre
 | Repair required | Black flag with an orange disc and the REPAIR label. |
 | Competing alerts | RPM at the shift cue, both sides occupied, with black ahead of repair, waving yellow, limiter and finish. |
 
-**Clear alerts** clears flags, limiter and proximity while retaining gear, RPM or sweep, connection, demo look and scale. **Test scale** previews 75%, 100% or 150% on the actual strip. Choose **Saved** to return to your configured size. Live mode uses your configured appearance. The spotter reports left, right, occupied on both sides, two left, or two right. The both-sides state gives no separate counts for those sides.
+**Clear alerts** clears flags, limiter and proximity while retaining gear, RPM or sweep, connection, demo look and scale. **Test scale** previews 75%, 100% or 150% on the actual strip. Choose **Saved** to return to your configured size. At **Saved** scale, Demo and live input use the same window bounds. The cockpit art fits inside the saved strip width. Live mode uses your configured appearance. The spotter reports left, right, occupied on both sides, two left, or two right. The both-sides state gives no separate counts for those sides.
 
 ## Build and test
 
@@ -65,7 +73,7 @@ dotnet run --project ApexLights.Tests -c Release
 dotnet run --project ApexLights -c Release -- --demo
 ```
 
-The dependency-free test runner returns a nonzero exit code on failure. It checks LED boundaries, flash phase, invalid thresholds, JSON persistence, buffer decoding, and reconnects using a private named mapping. To also sample an existing iRacing recording, append `-- --recording "C:\path\to\session.ibt"` to the test command.
+The test runner covers settings upgrades, both themes, peripheral placement at multiple resolutions and scales, and floating alert timing. It returns a nonzero exit code on failure. It checks LED boundaries, flash phase, invalid thresholds, JSON persistence, buffer decoding, and reconnects using a private named mapping. To also sample an existing iRacing recording, append `-- --recording "C:\path\to\session.ibt"` to the test command.
 
 Publish a single self-contained executable:
 
@@ -87,7 +95,7 @@ The reader opens the SDK mapping with read access and waits on the data-valid ev
 ## Troubleshooting
 
 - **Waiting for iRacing** means no fresh valid telemetry has arrived. Enter a simulator session, select **iRacing** or **Automatic**, and check that the simulator's memory telemetry output is enabled (`irsdkEnableMem=1` in its `app.ini`). Run the sim and overlay as the same Windows user.
-- **Strip is hidden over the game.** Use borderless-windowed mode. After a monitor change, choose **Placement → Center on primary display**.
+- **Strip is hidden over the game.** Use borderless-windowed mode. After a monitor change, choose **Overlay Appearance → Center on primary display**.
 - **Shortcut unavailable.** The footer shows the active shortcut. If the default is taken, ApexLights tries **Ctrl + Alt + Shift + L**. The settings and tray edit commands are always available.
 - **Settings are damaged.** Exit from the tray, rename the settings JSON, and relaunch for defaults.
 - **First launch takes longer.** The single-file build extracts bundled native libraries into the user's temporary .NET bundle cache. Windows needs write access to that cache and to the local settings folder.

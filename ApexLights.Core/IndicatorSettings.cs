@@ -15,6 +15,11 @@ public sealed class IndicatorSettings
     public bool ShowFlags { get; set; }
     public bool IncludeLimiter { get; set; } = true;
     public bool ShowProximity { get; set; }
+    public bool PeripheralBands { get; set; }
+    public bool FloatingFlag { get; set; }
+    public double CueOpacity { get; set; } = .78;
+    public double SideInset { get; set; } = .08;
+    public double FlagElevation { get; set; } = .22;
     public FlagLifetime FlagLifetime { get; set; }
     public FlagStyle FlagStyle { get; set; } = FlagStyle.Labeled;
     public SideStyle SideStyle { get; set; }
@@ -35,6 +40,9 @@ public sealed class IndicatorSettings
         if (!Enum.IsDefined(SideStyle)) SideStyle = SideStyle.Chevrons;
         FlagScale = NormalizeScale(FlagScale);
         SideScale = NormalizeScale(SideScale);
+        CueOpacity = double.IsFinite(CueOpacity) ? Math.Clamp(CueOpacity, .3, 1) : .78;
+        SideInset = double.IsFinite(SideInset) ? Math.Clamp(SideInset, 0, .35) : .08;
+        FlagElevation = double.IsFinite(FlagElevation) ? Math.Clamp(FlagElevation, .05, .65) : .22;
         AlertSeconds = double.IsFinite(AlertSeconds) ? Math.Clamp(AlertSeconds, 1, 20) : 4;
         EnabledFlags &= IndicatorPolicy.Supported;
         if (!Enum.IsDefined(GearPosition)) GearPosition = GearPosition.Right;
@@ -48,6 +56,7 @@ public sealed class IndicatorSettings
     {
         var copy = (IndicatorSettings)MemberwiseClone();
         copy.ShowGear = copy.ShowFlags = copy.ShowProximity = true;
+        copy.PeripheralBands = copy.FloatingFlag = true;
         copy.IncludeLimiter = true;
         copy.EnabledFlags = IndicatorPolicy.Supported;
         return copy;

@@ -1,0 +1,8 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="UiCanvas" Color="#202124"/>
+    <SolidColorBrush x:Key="UiNav" Color="#191A1D"/>
+    <SolidColorBrush x:Key="UiCard" Color="#2A2B2F"/>
+    <SolidColorBrush x:Key="UiStroke" Color="#43454A"/>
+    <SolidColorBrush x:Key="UiText" Color="#F3F4F6"/>
+    <SolidColorBrush x:Key="UiMuted" Color="#BDC1C7"/>
+</ResourceDictionary>

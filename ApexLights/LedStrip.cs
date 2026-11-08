@@ -8,11 +8,12 @@ namespace ApexLights;
 public sealed partial class LedStrip : FrameworkElement
 {
     private Settings settings = new();
+    private StripLayout layout;
     private LightFrame frame;
     private readonly Brush[] lens = new Brush[4];
     private readonly Brush[] bloom = new Brush[4];
     private Brush unlit = Brushes.Transparent;
-    private static readonly Brush Housing = Finish("#35383B", "#191B1D", "#090A0C");
+    private static readonly Brush Housing = Finish("#2F3236", "#1B1D20", "#101215");
     private static readonly Pen Rim = Freeze(new Pen(Finish("#7A7C80", "#34373A", "#121315"), 1.1));
     private static readonly Pen RecessEdge = Freeze(new Pen(Finish("#060709", "#313438", "#55585B"), 1));
     private static readonly Brush Recess = Finish("#080A0B", "#0C0F10", "#131617");
@@ -33,6 +34,7 @@ public sealed partial class LedStrip : FrameworkElement
     public void Configure(Settings s)
     {
         settings = s;
+        layout = new StripLayout(s);
         gearText = null;
         byte idle = (byte)(13 + 64 * s.InactiveBrightness);
         unlit = s.InactiveBrightness == 0 ? Brushes.Transparent :
@@ -61,7 +63,6 @@ public sealed partial class LedStrip : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
-        var layout = new StripLayout(settings);
         Size design = layout.Size;
         double scale = Math.Min(ActualWidth / design.Width, ActualHeight / design.Height);
         if (scale <= 0) return;
@@ -71,7 +72,7 @@ public sealed partial class LedStrip : FrameworkElement
         if (settings.DarkHousing)
         {
             var shell = layout.ShellBounds;
-            double corner = shell.Height * .42;
+            double corner = Math.Min(12, shell.Height * .36);
             dc.DrawRoundedRectangle(Housing, Rim, shell, corner, corner);
             if (!layout.FirstRail.IsEmpty) dc.DrawRoundedRectangle(Recess, RecessEdge, layout.FirstRail, 5, 5);
             if (!layout.SecondRail.IsEmpty) dc.DrawRoundedRectangle(Recess, RecessEdge, layout.SecondRail, 5, 5);

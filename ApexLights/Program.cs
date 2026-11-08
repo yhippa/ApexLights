@@ -39,6 +39,7 @@ public sealed class Runtime : IDisposable
     private readonly SettingsStore store;
     private readonly ShiftLights engine = new();
     private readonly IndicatorPolicy policy = new();
+    private readonly AwarenessDisplay awareness;
     private readonly DispatcherTimer update = new(DispatcherPriority.Render), save = new();
     private readonly Stopwatch time = Stopwatch.StartNew();
     private readonly bool forceOpen;
@@ -79,6 +80,7 @@ public sealed class Runtime : IDisposable
         if (demo) Config.Source = SourceMode.Demo;
         forceOpen = demo;
         Overlay = new Overlay(Config, ScheduleSave, ToggleEdit);
+        awareness = new AwarenessDisplay(Overlay);
         save.Interval = TimeSpan.FromMilliseconds(450);
         save.Tick += (_, _) => { save.Stop(); Flush(); };
         update.Tick += (_, _) => Tick();
@@ -87,6 +89,7 @@ public sealed class Runtime : IDisposable
     public void Start()
     {
         Overlay.Show();
+        awareness.Configure(Config.Indicators);
         controls = new ControlWindow(this);
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open settings", null, (_, _) => OpenSettings());
@@ -193,6 +196,7 @@ public sealed class Runtime : IDisposable
     private void UpdateAppearance()
     {
         Overlay.ApplySize(Appearance);
+        awareness.Configure(Appearance.Indicators);
         controls?.Configure();
     }
 
@@ -202,6 +206,7 @@ public sealed class Runtime : IDisposable
         save.Stop();
         if (!Exiting) save.Start();
     }
+    public void InterfaceChanged() => ScheduleSave();
     private void Flush()
     {
         if (dirty) dirty = !store.Save(Config);
@@ -250,14 +255,18 @@ public sealed class Runtime : IDisposable
         RaceSignal? signal = demo ? DemoSignals.Read() : live?.Signal;
         int? gear = signal?.Gear;
         var indicators = policy.Evaluate(signal, Appearance.Indicators, frame, seconds);
+        if (indicators.Accent > 0 && !SystemParameters.ClientAreaAnimation)
+            indicators = indicators with { Accent = 0 };
         Overlay.Strip.Display(frame);
         Overlay.Strip.DisplayIndicators(indicators);
+        var cues = indicators with { Flag = policy.FloatingFlag };
+        awareness.Display(cues);
         bool animated = live != null || (demoOnline && Sweep) || frame.Flashing || indicators.Accent > 0;
         var interval = TimeSpan.FromMilliseconds(animated ? 16 : 180);
         if (update.Interval != interval) update.Interval = interval;
         if (controls?.IsVisible == true)
         {
-            controls.DisplayFrame(frame, indicators);
+            controls.DisplayFrame(frame, indicators, cues);
             if (seconds - lastReadout >= .12)
             {
                 lastReadout = seconds;
@@ -272,6 +281,7 @@ public sealed class Runtime : IDisposable
         Exiting = true;
         update.Stop(); save.Stop();
         feed?.Dispose();
+        awareness.Dispose();
         Flush();
         if (tray != null)
         {

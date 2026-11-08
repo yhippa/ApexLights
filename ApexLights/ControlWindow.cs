@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -19,7 +19,16 @@ public sealed partial class ControlWindow : Window
 {
     private readonly Runtime app;
     private Settings S => app.Config;
-    private readonly StackPanel page = new(), tabs = new() { Orientation = Orientation.Horizontal };
+    private readonly StackPanel page = new();
+    private StackPanel section = new();
+    private readonly TextBlock pageTitle = new();
+    private readonly Border stage = new();
+    private readonly Canvas cueLayer = new() { IsHitTestVisible=false };
+    private readonly AwarenessCue previewLeft = new(CuePlace.Left), previewRight = new(CuePlace.Right), previewFlag = new(CuePlace.Flag);
+    private readonly ListBox navigation = new() { BorderThickness = new(0), Background = Brushes.Transparent };
+    private ResourceDictionary? palette;
+    private readonly Dictionary<string,bool> disclosure = new();
+    private static readonly string[] Sections = ["Demo / Testing","Shift Lights","Gear Indicator","Proximity Awareness","Racing Flags","Overlay Appearance"];
     private readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     private readonly TextBlock sourceLabel = Label("", 11), reading = Label("", 13);
     private readonly TextBlock notice = Label("", 12);
@@ -32,8 +41,7 @@ public sealed partial class ControlWindow : Window
     private string? editorKey;
     private double? previousScale;
     private string? previousWarning;
-    private static readonly Brush Muted = BrushOf("#ADB4B3"), Accent = BrushOf("#FF784A");
-    private static readonly FontFamily Mono = new("Consolas");
+    private FontFamily Mono => (FontFamily)FindResource("UiMono");
     private static Brush BrushOf(string color) => (Brush)new BrushConverter().ConvertFromString(color)!;
     private static TextBlock Label(string text, double size = 13) => new() { Text = text, FontSize = size,
         VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
@@ -43,79 +51,163 @@ public sealed partial class ControlWindow : Window
     {
         this.app = app;
         Title = "ApexLights Settings";
-        Width = 560; Height = 675; MinWidth = 490; MinHeight = 430;
-        Height = Math.Min(Height, SystemParameters.WorkArea.Height - 20);
+        var work = SystemParameters.WorkArea;
+        Width = Math.Min(980, work.Width - 16); Height = Math.Min(800, work.Height - 16);
+        MinWidth = Math.Min(660, Width); MinHeight = Math.Min(440, Height);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        Background = BrushOf("#191D1F"); Foreground = BrushOf("#F0F2ED");
-        FontFamily = new FontFamily("Segoe UI"); FontSize = 13;
-        ShowInTaskbar = false;
-        Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("/ApexLights;component/Theme.xaml", UriKind.Relative) });
-        SourceInitialized += (_, _) =>
-        {
-            int dark = 1;
-            DwmSetWindowAttribute(new WindowInteropHelper(this).Handle, 20, ref dark, 4);
-        };
+        ShowInTaskbar = false; UseLayoutRounding = true; FontSize = 14;
+        Resources.MergedDictionaries.Add(Dictionary("Theme.xaml"));
+        ApplyTheme();
+        SourceInitialized += (_, _) => ApplyWindowTheme();
+        FontFamily = (FontFamily)FindResource("UiFont");
         Closing += (_, e) => { if (!app.Exiting) { e.Cancel = true; Hide(); } };
-
-        var shell = new DockPanel();
-        Content = shell;
-        var header = new DockPanel { Margin = new(24, 18, 24, 16) };
-        var mark = new Path { Data = Geometry.Parse("M0,24 L16,0 25,0 11,24Z M19,24 L29,8 37,24Z"),
-            Fill = Accent, Width = 37, Height = 24, Margin = new(0, 0, 12, 0) };
-        header.Children.Add(mark);
-        var wordmark = Label("ApexLights", 27);
-        wordmark.FontWeight = FontWeights.SemiBold;
-        header.Children.Add(wordmark);
-        DockPanel.SetDock(header, Dock.Top); shell.Children.Add(header);
-
-        var well = new DockPanel { Margin = new(16, 10, 16, 10) };
-        var readout = new DockPanel();
-        sourceLabel.Foreground = Accent; sourceLabel.FontFamily = Mono;
-        reading.FontFamily = Mono; reading.HorizontalAlignment = HorizontalAlignment.Right;
-        readout.Children.Add(sourceLabel); readout.Children.Add(reading);
-        DockPanel.SetDock(readout, Dock.Top); well.Children.Add(readout);
-        preview.Height = 39; preview.Margin = new(0, 8, 0, 0);
-        well.Children.Add(preview);
-        var panel = new Border { Background = BrushOf("#101416"), BorderBrush = BrushOf("#383E40"),
-            BorderThickness = new(1), CornerRadius = new(7), Margin = new(24, 0, 24, 12), Child = well };
-        DockPanel.SetDock(panel, Dock.Top); shell.Children.Add(panel);
-
-        tabs.Margin = new(24, 0, 24, 12);
-        DockPanel.SetDock(tabs, Dock.Top); shell.Children.Add(tabs);
-        string[] names = ["Telemetry", "Appearance", "Placement", "Indicators"];
-        for (int i = 0; i < names.Length; i++)
-        {
-            int index = i;
-            var option = new RadioButton { Content = names[i], GroupName = "pages", Margin = new(0, 0, 5, 0), IsChecked = i == 0 };
-            option.Checked += (_, _) => { tab = index; BuildPage(); scroll.ScrollToHome(); };
-            tabs.Children.Add(option);
-        }
-        var footer = new DockPanel { Margin = new(24, 10, 24, 14) };
-        edit.Click += (_, _) => app.ToggleEdit();
-        hide.Click += (_, _) => Hide();
-        hide.Margin = new(8, 0, 0, 0);
-        DockPanel.SetDock(hide, Dock.Right); footer.Children.Add(hide);
-        DockPanel.SetDock(edit, Dock.Left); footer.Children.Add(edit);
-        var shortcut = Label(app.Overlay.Shortcut ?? "", 11); shortcut.Foreground = Muted; shortcut.Margin = new(10, 0, 0, 0);
-        footer.Children.Add(shortcut); DockPanel.SetDock(footer, Dock.Bottom); shell.Children.Add(footer);
-        notice.Margin = new(24, 0, 24, 0); notice.Foreground = Accent;
-        DockPanel.SetDock(notice, Dock.Bottom); shell.Children.Add(notice);
-        scroll.Content = page; page.Margin = new(24, 0, 24, 6); shell.Children.Add(scroll);
+        SystemParameters.StaticPropertyChanged += SystemPreferenceChanged;
+        Closed += (_, _) => SystemParameters.StaticPropertyChanged -= SystemPreferenceChanged;
+        BuildShell();
         Configure();
-        BuildPage();
+        navigation.SelectedIndex = 0;
     }
+
+    private static ResourceDictionary Dictionary(string file) => new()
+    { Source = new Uri("/ApexLights;component/" + file, UriKind.Relative) };
+
+    private void ApplyTheme()
+    {
+        if (palette != null) Resources.MergedDictionaries.Remove(palette);
+        palette = Dictionary(S.Theme == SettingsTheme.Dark ? "ThemeDark.xaml" : "ThemeLight.xaml");
+        if (SystemParameters.HighContrast)
+        {
+            foreach (string name in new[]{"UiCanvas","UiNav","UiCard"}) palette[name]=SystemColors.WindowBrush;
+            foreach (string name in new[]{"UiText","UiMuted","UiStroke"}) palette[name]=SystemColors.WindowTextBrush;
+        }
+        Resources.MergedDictionaries.Add(palette);
+        ApplyWindowTheme();
+        SetResourceReference(BackgroundProperty,"UiCanvas"); SetResourceReference(ForegroundProperty,"UiText");
+    }
+
+    private void ApplyWindowTheme()
+    {
+        // WPF synchronizes ThemeMode with the window dictionaries. Set it after
+        // updating our palette and again when the native window first exists.
+#pragma warning disable WPF0001
+        ThemeMode = S.Theme == SettingsTheme.Dark ? System.Windows.ThemeMode.Dark : System.Windows.ThemeMode.Light;
+#pragma warning restore WPF0001
+    }
+
+    private void SystemPreferenceChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SystemParameters.HighContrast)) Dispatcher.BeginInvoke(ApplyTheme);
+    }
+
+    private void BuildShell()
+    {
+        var shell = new Grid(); shell.SetResourceReference(Panel.BackgroundProperty,"UiCanvas"); Content = shell;
+        var navColumn = new ColumnDefinition { Width = new GridLength(212) };
+        shell.ColumnDefinitions.Add(navColumn); shell.ColumnDefinitions.Add(new ColumnDefinition());
+        SizeChanged += (_,_) => navColumn.Width = new GridLength(ActualWidth < 800 ? 174 : 212);
+        var sidebar = new DockPanel { LastChildFill=true };
+        var side = new Border { Child=sidebar, BorderThickness=new(0,0,1,0) };
+        side.SetResourceReference(Border.BackgroundProperty,"UiNav"); side.SetResourceReference(Border.BorderBrushProperty,"UiStroke");
+        shell.Children.Add(side);
+        var brand = new StackPanel { Orientation=Orientation.Horizontal,Margin=new(16,24,8,24) };
+        var mark = new Path { Data = Geometry.Parse("M0,24 L16,0 25,0 11,24Z M19,24 L29,8 37,24Z"),
+            Width=29,Height=20,Stretch=Stretch.Uniform,Margin=new(0,0,8,0) };
+        mark.SetResourceReference(Shape.FillProperty,"BrandOrange"); brand.Children.Add(mark);
+        var wordmark=Label("ApexLights",22); wordmark.FontWeight=FontWeights.SemiBold; brand.Children.Add(wordmark);
+        DockPanel.SetDock(brand,Dock.Top); sidebar.Children.Add(brand);
+        var navTitle=Label("Settings",12); navTitle.SetResourceReference(TextBlock.ForegroundProperty,"UiMuted");
+        navTitle.Margin=new(16,0,8,8); DockPanel.SetDock(navTitle,Dock.Top); sidebar.Children.Add(navTitle);
+        navigation.Margin=new(8,0,8,0); navigation.HorizontalContentAlignment=HorizontalAlignment.Stretch;
+        navigation.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "NavigationItem");
+        Named(navigation,"Settings sections");
+        string[] icons=["\uE768","\uE9D9","\uE8EF","\uE7B8","\uE7C1","\uE7F4"];
+        for (int i=0;i<Sections.Length;i++)
+        {
+            var line=new StackPanel{Orientation=Orientation.Horizontal};
+            var icon=Label(icons[i],15); icon.FontFamily=new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
+            icon.Width=24; line.Children.Add(icon); line.Children.Add(Label(Sections[i]));
+            var item=new ListBoxItem{Content=line,MinHeight=40,Padding=new(8,4,4,4)};
+            Named(item,Sections[i]); navigation.Items.Add(item);
+        }
+        navigation.SelectionChanged+=(_,_)=>{ tab=navigation.SelectedIndex; BuildPage(); scroll.ScrollToHome(); };
+        sidebar.Children.Add(navigation);
+        var right=new DockPanel{Margin=(Thickness)FindResource("PageInset")};
+        Grid.SetColumn(right,1); shell.Children.Add(right);
+        pageTitle.SetResourceReference(StyleProperty,"PageTitle"); DockPanel.SetDock(pageTitle,Dock.Top); right.Children.Add(pageTitle);
+        var previewCard=BuildPreview(); DockPanel.SetDock(previewCard,Dock.Top); right.Children.Add(previewCard);
+        var footer=new DockPanel{Margin=new(0,8,0,0)};
+        edit.Click+=(_,_)=>app.ToggleEdit(); hide.Click+=(_,_)=>Hide();
+        edit.MinHeight=hide.MinHeight=32; edit.SetResourceReference(StyleProperty,"AccentButtonStyle");
+        DockPanel.SetDock(edit,Dock.Left); footer.Children.Add(edit);
+        DockPanel.SetDock(hide,Dock.Right); footer.Children.Add(hide);
+        var shortcut=Label(app.Overlay.Shortcut??"",12); shortcut.Margin=new(12,0,8,0);
+        shortcut.SetResourceReference(TextBlock.ForegroundProperty,"UiMuted"); footer.Children.Add(shortcut);
+        DockPanel.SetDock(footer,Dock.Bottom); right.Children.Add(footer);
+        notice.Margin=new(0,4,0,0); notice.SetResourceReference(TextBlock.ForegroundProperty,"UiText");
+        DockPanel.SetDock(notice,Dock.Bottom);right.Children.Add(notice);
+        scroll.Focusable=false; scroll.Content=page; right.Children.Add(scroll);
+    }
+
+    private Border BuildPreview()
+    {
+        var contents=new DockPanel();
+        var bar=new DockPanel{Margin=new(0,0,0,8)};
+        var contrast=new ComboBox{ItemsSource=new[]{"Dark track","Light track"},SelectedIndex=(int)S.Backdrop,MinWidth=116};
+        Named(contrast,"Preview background");
+        contrast.SelectionChanged+=(_,_)=>{
+            if (contrast.SelectedIndex<0)return;
+            S.Backdrop=(PreviewBackdrop)contrast.SelectedIndex; SetBackdrop(); app.InterfaceChanged();
+        };
+        DockPanel.SetDock(contrast,Dock.Right); bar.Children.Add(contrast);
+        var title=Label("Live preview",15); title.FontWeight=FontWeights.SemiBold; bar.Children.Add(title);
+        DockPanel.SetDock(bar,Dock.Top); contents.Children.Add(bar);
+        var screen=new Grid{ClipToBounds=true}; stage.Child=screen;stage.CornerRadius=new(4);stage.Height=112;
+        SetBackdrop(); contents.Children.Add(stage);
+        screen.Children.Add(preview);
+        screen.Children.Add(cueLayer);
+        cueLayer.Children.Add(previewLeft);cueLayer.Children.Add(previewRight);cueLayer.Children.Add(previewFlag);
+        cueLayer.SizeChanged+=(_,_)=>PositionPreview();
+        var meta=new DockPanel{Margin=new(0,8,0,0)}; reading.HorizontalAlignment=HorizontalAlignment.Right; reading.FontFamily=Mono;
+        DockPanel.SetDock(reading,Dock.Right);meta.Children.Add(reading); sourceLabel.FontFamily=Mono;
+        sourceLabel.SetResourceReference(TextBlock.ForegroundProperty,"UiMuted");meta.Children.Add(sourceLabel);
+        DockPanel.SetDock(meta,Dock.Bottom);contents.Children.Insert(1,meta);
+        var card=new Border{Child=contents};card.SetResourceReference(StyleProperty,"SectionCard");return card;
+    }
+
+    private void SetBackdrop() => stage.SetResourceReference(Border.BackgroundProperty,
+        S.Backdrop == PreviewBackdrop.Dark ? "TrackDark" : "TrackLight");
 
     public void Configure()
     {
         preview.Configure(app.Appearance);
         preview.Opacity = S.Opacity;
-        preview.Height = Math.Max(39, LedStrip.Footprint(app.Appearance).Height);
+        previewLeft.Opacity = previewRight.Opacity = previewFlag.Opacity = app.Appearance.Indicators.CueOpacity;
+        PositionPreview();
+    }
+    private void PositionPreview()
+    {
+        var options=app.Appearance.Indicators;
+        double width = cueLayer.ActualWidth;
+        double sideGutter = Math.Min(width * .30, Math.Max(56, width * options.SideInset + 44));
+        preview.Margin = new Thickness(sideGutter, 32, sideGutter, 12);
+        Place(previewLeft,CuePlace.Left,options.SideScale*.36);
+        Place(previewRight,CuePlace.Right,options.SideScale*.36);
+        Place(previewFlag,CuePlace.Flag,options.FlagScale*.55);
+        void Place(AwarenessCue visual,CuePlace place,double scale)
+        {
+            var design=AwarenessCue.Design(place);
+            visual.Width=design.Width*scale;visual.Height=design.Height*scale;
+            var (x,y)=CuePosition.Within(place,cueLayer.ActualWidth,cueLayer.ActualHeight,visual.Width,visual.Height,options.SideInset,options.FlagElevation);
+            Canvas.SetLeft(visual,x);Canvas.SetTop(visual,y);
+        }
     }
     public void RefreshSourceSelection() => BuildPage();
-    public void DisplayFrame(LightFrame frame, IndicatorFrame indicators)
+    public void DisplayFrame(LightFrame frame, IndicatorFrame indicators, IndicatorFrame cues)
     {
         preview.Display(frame);
         preview.DisplayIndicators(indicators);
+        var opts = app.Appearance.Indicators;
+        previewLeft.Display(cues,opts); previewRight.Display(cues,opts); previewFlag.Display(cues,opts);
     }
     public void ModeChanged() { edit.Content = app.Overlay.Editing ? "Lock overlay" : "Edit overlay"; }
 
@@ -131,12 +223,12 @@ public sealed partial class ControlWindow : Window
             BuildPage();
         }
         string mode = live != null ? "LIVE  /  " + carName : demo ? "DEMO  /  " +
-            (!app.DemoSignals.Connected ? "DISCONNECTED" : S.Source == SourceMode.Automatic ? "AUTO" : "MANUAL") : "WAITING FOR IRACING";
+            (!app.DemoSignals.Connected ? "DISCONNECTED" : app.Sweep ? "RPM SWEEP" : "MANUAL RPM") : "WAITING FOR IRACING";
         if (sourceLabel.Text != mode) sourceLabel.Text = mode;
         string output = live == null && (!demo || !app.DemoSignals.Connected) ? "— RPM" : $"{rpm:N0} RPM" + (gear != null ? $"   G {GearDisplay.Format(gear)}" : "");
         if (reading.Text != output) reading.Text = output;
         if (previousWarning != warning) { previousWarning = warning; SetNotice(warning ?? ""); }
-        if (tab == 2 && previousScale != S.Scale) BuildPage();
+        if (tab == 5 && previousScale != S.Scale) BuildPage();
     }
 
     private void SetNotice(string text) { notice.Text = text; notice.Visibility = text == "" ? Visibility.Collapsed : Visibility.Visible; }
@@ -146,37 +238,47 @@ public sealed partial class ControlWindow : Window
         page.Children.Clear();
         SetNotice(previousWarning ?? "");
         ModeChanged();
-        if (tab == 0) TelemetryPage();
-        if (tab == 1) AppearancePage();
-        if (tab == 2) PlacementPage();
-        if (tab == 3) IndicatorsPage();
+        if (tab < 0 || tab >= Sections.Length) return;
+        pageTitle.Text = Sections[tab];
+        switch (tab)
+        {
+            case 0: TelemetryPage(); break;
+            case 1: ShiftLightsPage(); break;
+            case 2: GearPage(); break;
+            case 3: ProximityPage(); break;
+            case 4: FlagsPage(); break;
+            case 5: AppearancePage(); break;
+        }
     }
 
-    private void Heading(string title)
+    private void Heading(string title, bool collapsible = false)
     {
-        var label = Label(title, 16); label.FontWeight = FontWeights.SemiBold; label.Margin = new(0, 8, 0, 6);
-        page.Children.Add(label);
+        section = new StackPanel();
+        if (collapsible)
+        {
+            var expander = new Expander { Header=title, Content=section, IsExpanded=disclosure.GetValueOrDefault(title),
+                HorizontalContentAlignment=HorizontalAlignment.Stretch, Margin=new(0,0,0,8),Padding=new(12) };
+            expander.Expanded += (_,_) => disclosure[title]=true;
+            expander.Collapsed += (_,_) => disclosure[title]=false;
+            page.Children.Add(expander); return;
+        }
+        var caption=Label(title,15);caption.SetResourceReference(StyleProperty,"SectionTitle");section.Children.Add(caption);
+        var card=new Border{Child=section};card.SetResourceReference(StyleProperty,"SectionCard");page.Children.Add(card);
     }
+
     private void Hint(string text)
     {
-        var label = Label(text, 12); label.Foreground = Muted; label.Margin = new(0, 3, 0, 7);
-        page.Children.Add(label);
+        var label=Label(text,12);label.SetResourceReference(StyleProperty,"SupportingText");section.Children.Add(label);
     }
-
-    private void Choices(string label, string[] options, int selected, Action<int> change)
+    private ComboBox Choices(string label,string[] options,int selected,Action<int> change)
     {
-        var row = new DockPanel { Margin = new(0, 5, 0, 5) };
-        var title = Label(label); title.Width = 110; row.Children.Add(title);
-        var buttons = new WrapPanel();
-        string group = Guid.NewGuid().ToString();
-        for (int i = 0; i < options.Length; i++)
-        {
-            int index = i;
-            var choice = new RadioButton { Content = options[i], GroupName = group, IsChecked = i == selected, Margin = new(0, 0, 4, 0) };
-            choice.Checked += (_, _) => change(index);
-            buttons.Children.Add(choice);
-        }
-        row.Children.Add(buttons); page.Children.Add(row);
+        var row=new Grid{Margin=new(0,4,0,4)};
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(166)});
+        row.Children.Add(Label(label,14));
+        var combo=new ComboBox {ItemsSource=options,SelectedIndex=selected,MinHeight=32,HorizontalContentAlignment=HorizontalAlignment.Stretch};
+        Named(combo,label);combo.SelectionChanged+=(_,_)=>{if(combo.SelectedIndex>=0)change(combo.SelectedIndex);};
+        Grid.SetColumn(combo,1);row.Children.Add(combo);section.Children.Add(row);return combo;
     }
 
     private Slider Range(string label, double min, double max, double value, double step, Func<double, string> format, Action<double> change)
@@ -189,19 +291,30 @@ public sealed partial class ControlWindow : Window
             SmallChange = step, LargeChange = Math.Max(step, (max - min) / 10) };
         Named(slider, label);
         slider.ValueChanged += (_, e) => { number.Text = format(e.NewValue); change(e.NewValue); };
-        row.Children.Add(slider); page.Children.Add(row);
+        slider.IsMoveToPointEnabled=true;slider.MinHeight=32;
+        row.Children.Add(slider); section.Children.Add(row);
         return slider;
     }
 
-    private CheckBox Check(string label, bool value, Action<bool> change)
+    private ToggleButton Check(string label, bool value, Action<bool> change)
     {
-        var box = new CheckBox { Content = label, IsChecked = value, Margin = new(0, 6, 0, 6) };
+        var row = new DockPanel { Margin=new(0,4,0,4) };
+        var box = new ToggleButton { Content=value?"On":"Off",IsChecked=value,MinWidth=64,MinHeight=32 };
+        box.SetResourceReference(StyleProperty,"SettingSwitch");
+        Named(box,label);
+        box.Checked += (_, _) => box.Content = "On";
+        box.Unchecked += (_, _) => box.Content = "Off";
         box.Click += (_, _) => change(box.IsChecked == true);
-        page.Children.Add(box);
+        DockPanel.SetDock(box,Dock.Right);row.Children.Add(box);row.Children.Add(Label(label,14));section.Children.Add(row);
         return box;
     }
 
-    private void Changed() => app.SettingsChanged();
+    private void Changed()
+    {
+        if (tab != 0 && demo && app.DemoUsesCockpit && lookSelector?.IsLoaded == true)
+            lookSelector.SelectedIndex = 1;
+        app.SettingsChanged();
+    }
 
     private void TelemetryPage()
     {
@@ -220,6 +333,7 @@ public sealed partial class ControlWindow : Window
             {
                 app.Sweep = false; sweep.IsChecked = false; app.ManualRpm = value;
             });
+            Heading("Demo thresholds", true);
             ThresholdEditor(S.Demo, true);
             DemoIndicators();
         }
@@ -241,13 +355,13 @@ public sealed partial class ControlWindow : Window
         for (int i = 0; i < boxes.Length; i++)
         {
             var column = new StackPanel { Margin = new(0, 0, i == 3 ? 0 : 7, 0) };
-            var label = Label(names[i], 11); label.Foreground = Muted; label.Margin = new(0, 0, 0, 4);
+            var label = Label(names[i], 11); label.SetResourceReference(TextBlock.ForegroundProperty,"UiMuted"); label.Margin = new(0, 0, 0, 4);
             column.Children.Add(label);
             boxes[i] = new TextBox { Text = values[i].ToString("0.##", CultureInfo.CurrentCulture), FontFamily = Mono };
             Named(boxes[i], names[i] + " RPM");
             column.Children.Add(boxes[i]); grid.Children.Add(column);
         }
-        page.Children.Add(grid);
+        section.Children.Add(grid);
         var actions = new WrapPanel { Margin = new(0, 4, 0, 4) };
         var apply = new Button { Content = forDemo ? "Apply thresholds" : "Save car override" };
         apply.Click += (_, _) =>
@@ -266,17 +380,28 @@ public sealed partial class ControlWindow : Window
             reset.Click += (_, _) => { S.Cars.Remove(carKey); Changed(); BuildPage(); };
             actions.Children.Add(reset);
         }
-        page.Children.Add(actions);
+        section.Children.Add(actions);
     }
 
     private void AppearancePage()
     {
+        Heading("Settings appearance");
+        Choices("Theme", ["Dark", "Light"], (int)S.Theme, i => { S.Theme=(SettingsTheme)i; ApplyTheme(); app.InterfaceChanged(); });
+        Heading("Cockpit appearance");
         if (demo) DemoLookPicker();
         var cockpit = new Button { Content = "Apply cockpit preset", HorizontalAlignment = HorizontalAlignment.Left,
             Margin = new(0, 5, 0, 3), ToolTip = "Use neon LEDs, a large right-hand gear pod, side chevrons and the status window." };
         cockpit.Click += (_, _) => { app.ApplyCockpitPreset(); BuildPage(); SetNotice("Cockpit preset applied."); };
-        page.Children.Add(cockpit);
+        section.Children.Add(cockpit);
+        Range("Opacity", .15, 1, S.Opacity, .01, v => $"{v:P0}", v => { S.Opacity = v; Changed(); });
+        Check("Dark strip housing", S.DarkHousing, v => { S.DarkHousing = v; Changed(); });
+        PlacementPage();
+    }
+
+    private void ShiftLightsPage()
+    {
         Heading("LED strip");
+        if (demo) DemoLookPicker();
         Choices("Segments", ["10", "11", "12"], S.Count - 10, i => { S.Count = 10 + i; Changed(); });
         Choices("Shape", ["Blade", "Round", "Square"], (int)S.Shape, i => { S.Shape = (LensShape)i; Changed(); });
         Choices("Progression", ["Left → right", "Right → left", "Outside in"], (int)S.Direction, i => { S.Direction = (Progression)i; Changed(); });
@@ -299,13 +424,11 @@ public sealed partial class ControlWindow : Window
             };
             swatches.Children.Add(swatch);
         }
-        colors.Children.Add(swatches); page.Children.Add(colors);
+        colors.Children.Add(swatches); section.Children.Add(colors);
         Range("Lens size", 12, 44, S.LensSize, 1, v => $"{v:0} DIP", v => { S.LensSize = v; Changed(); });
         Range("Spacing", 1, 14, S.Gap, 1, v => $"{v:0} DIP", v => { S.Gap = v; Changed(); });
         Range("Brightness", .1, 1, S.Brightness, .01, v => $"{v:P0}", v => { S.Brightness = v; Changed(); });
         Range("Inactive LEDs", 0, 1, S.InactiveBrightness, .01, v => $"{v:P0}", v => { S.InactiveBrightness = v; Changed(); });
-        Range("Opacity", .15, 1, S.Opacity, .01, v => $"{v:P0}", v => { S.Opacity = v; Changed(); });
-        Check("Dark strip housing", S.DarkHousing, v => { S.DarkHousing = v; Changed(); });
         Heading("Shift cue");
         Choices("Flash at", ["Shift RPM", "Blink RPM", "Off"], (int)S.Flash, i => { S.Flash = (FlashTrigger)i; Changed(); });
         Range("Flash rate", 1, 10, S.Hz, 1, v => $"{v:0} Hz", v => { S.Hz = (int)v; Changed(); });
@@ -323,12 +446,12 @@ public sealed partial class ControlWindow : Window
         });
         var center = new Button { Content = "Center on primary display", HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 6, 0, 10) };
         center.Click += (_, _) => app.Overlay.Place(null, null);
-        page.Children.Add(center);
+        section.Children.Add(center);
         Heading("Startup");
         Check("Start with settings hidden", S.StartMinimized, v => { S.StartMinimized = v; Changed(); });
         Hint("Open settings or exit from the ApexLights tray icon.");
     }
 
     private sealed record NativeOwner(IntPtr Handle) : Forms.IWin32Window;
-    [DllImport("dwmapi")] private static extern int DwmSetWindowAttribute(IntPtr h, int attribute, ref int value, int size);
+
 }
