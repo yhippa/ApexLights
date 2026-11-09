@@ -14,8 +14,11 @@ internal static partial class Program
 {
     private static readonly Thresholds Points = new(5000, 7000, 6750, 7300);
     private static int passed, failed;
+    [STAThread]
     private static void Main(string[] args)
     {
+        Run("Gear ink stays inside its reserved region across positions, sizes and DPI", GearInkBounds);
+        Run("Flag and peripheral artwork renders distinct transparent silhouettes", CueSilhouettes);
         Run("Simultaneous alerts preserve gear and both sides during a shift", Priority);
         Run("Old settings migrate and Fluent theme, preview and cue preferences persist", FluentSettings);
         Run("Floating flag duration and peripheral warnings work independently from strip slots", RemoteCues);

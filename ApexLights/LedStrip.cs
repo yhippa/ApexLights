@@ -13,22 +13,7 @@ public sealed partial class LedStrip : FrameworkElement
     private readonly Brush[] lens = new Brush[4];
     private readonly Brush[] bloom = new Brush[4];
     private Brush unlit = Brushes.Transparent;
-    private static readonly Brush Housing = Finish("#2F3236", "#1B1D20", "#101215");
-    private static readonly Pen Rim = Freeze(new Pen(Finish("#7A7C80", "#34373A", "#121315"), 1.1));
-    private static readonly Pen RecessEdge = Freeze(new Pen(Finish("#060709", "#313438", "#55585B"), 1));
-    private static readonly Brush Recess = Finish("#080A0B", "#0C0F10", "#131617");
-
     public LedStrip() { IsHitTestVisible = false; Configure(settings); }
-    private static T Freeze<T>(T value) where T : Freezable { value.Freeze(); return value; }
-    private static Brush Solid(string hex) => Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)));
-    private static Brush Finish(string top, string middle, string bottom)
-    {
-        var brush = new LinearGradientBrush { StartPoint = new Point(.5, 0), EndPoint = new Point(.5, 1) };
-        brush.GradientStops.Add(new((Color)ColorConverter.ConvertFromString(top), 0));
-        brush.GradientStops.Add(new((Color)ColorConverter.ConvertFromString(middle), .45));
-        brush.GradientStops.Add(new((Color)ColorConverter.ConvertFromString(bottom), 1));
-        return Freeze(brush);
-    }
     public static Size Footprint(Settings s) => new StripLayout(s).Size;
 
     public void Configure(Settings s)
@@ -38,18 +23,24 @@ public sealed partial class LedStrip : FrameworkElement
         gearText = null;
         byte idle = (byte)(13 + 64 * s.InactiveBrightness);
         unlit = s.InactiveBrightness == 0 ? Brushes.Transparent :
-            Freeze(new SolidColorBrush(Color.FromRgb(idle, (byte)(idle + 3), (byte)(idle + 4))));
+            HudArt.Frozen(new SolidColorBrush(Color.FromArgb(164, idle, (byte)(idle + 6), (byte)(idle + 11))));
         for (int i = 0; i < 4; i++)
         {
             Color c = (Color)ColorConverter.ConvertFromString(s.Colors[i]);
             Color face = Color.FromRgb((byte)(c.R * s.Brightness), (byte)(c.G * s.Brightness), (byte)(c.B * s.Brightness));
             byte Top(byte value) => (byte)Math.Min(255, value * 1.10 + 9 * s.Brightness);
-            lens[i] = Freeze(new LinearGradientBrush(Color.FromRgb(Top(face.R), Top(face.G), Top(face.B)), face, 90));
+            var highlight = Color.FromRgb(Top(face.R), Top(face.G), Top(face.B));
+            var bevel = new LinearGradientBrush { StartPoint = new(.5, 0), EndPoint = new(.5, 1) };
+            bevel.GradientStops.Add(new(Color.FromRgb((byte)(highlight.R + (255-highlight.R)*.36*s.Brightness),
+                (byte)(highlight.G + (255-highlight.G)*.36*s.Brightness), (byte)(highlight.B + (255-highlight.B)*.36*s.Brightness)), 0));
+            bevel.GradientStops.Add(new(highlight, .15));
+            bevel.GradientStops.Add(new(face, 1));
+            lens[i] = HudArt.Frozen(bevel);
             var light = new RadialGradientBrush();
             light.GradientStops.Add(new(Color.FromArgb(145, face.R, face.G, face.B), 0));
             light.GradientStops.Add(new(Color.FromArgb(90, face.R, face.G, face.B), .56));
             light.GradientStops.Add(new(Color.FromArgb(0, face.R, face.G, face.B), 1));
-            bloom[i] = Freeze(light);
+            bloom[i] = HudArt.Frozen(light);
         }
         InvalidateVisual();
     }
@@ -72,14 +63,14 @@ public sealed partial class LedStrip : FrameworkElement
         if (settings.DarkHousing)
         {
             var shell = layout.ShellBounds;
-            double corner = Math.Min(12, shell.Height * .36);
-            dc.DrawRoundedRectangle(Housing, Rim, shell, corner, corner);
-            if (!layout.FirstRail.IsEmpty) dc.DrawRoundedRectangle(Recess, RecessEdge, layout.FirstRail, 5, 5);
-            if (!layout.SecondRail.IsEmpty) dc.DrawRoundedRectangle(Recess, RecessEdge, layout.SecondRail, 5, 5);
+            double corner = shell.Height / 2;
+            dc.DrawRoundedRectangle(HudArt.Shell, HudArt.ShellEdge, shell, corner, corner);
+            if (!layout.FirstRail.IsEmpty) dc.DrawRoundedRectangle(HudArt.Rail, HudArt.Hairline, layout.FirstRail, corner * .7, corner * .7);
+            if (!layout.SecondRail.IsEmpty) dc.DrawRoundedRectangle(HudArt.Rail, HudArt.Hairline, layout.SecondRail, corner * .7, corner * .7);
         }
         DrawIndicators(dc, layout);
         double height = layout.LensHeight;
-        double radius = settings.Shape == LensShape.Round ? height / 2 : settings.Shape == LensShape.Square ? 1 : 3;
+        double radius = settings.Shape == LensShape.Round ? height / 2 : settings.Shape == LensShape.Square ? 1 : Math.Min(5, height * .24);
         for (int i = 0; i < settings.Count; i++)
         {
             var rect = new Rect(layout.LensX(i), (design.Height - height) / 2, settings.LensSize, height);
@@ -89,7 +80,7 @@ public sealed partial class LedStrip : FrameworkElement
             if (on)
             {
                 var light = rect;
-                light.Inflate(Math.Min(8, height * .5), Math.Min(8, height * .5));
+                light.Inflate(Math.Min(12, height * .68), Math.Min(9, height * .52));
                 dc.DrawEllipse(bloom[zone], null, new Point(light.X + light.Width / 2, light.Y + light.Height / 2),
                     light.Width / 2, light.Height / 2);
             }

@@ -12,6 +12,7 @@
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="ApexLights.Tests"/>
     <ProjectReference Include="../ApexLights.Core/ApexLights.Core.csproj" />
     <Resource Include="apex.ico" />
   </ItemGroup>

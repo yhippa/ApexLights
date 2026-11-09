@@ -56,7 +56,7 @@ internal readonly struct StripLayout
         FlagX = x + CueGap;
         if (opt.ShowFlags) x = FlagX + FlagWidth;
         Size = new(x + side + margin, height);
-        ShellBounds = new Rect(.6, (height - shellH) / 2 + .6, Size.Width - 1.2, shellH - 1.2);
+        ShellBounds = new Rect(.6, .6, Size.Width - 1.2, height - 1.2);
     }
 
     public double LensX(int index) => index < firstCount
@@ -91,8 +91,8 @@ public sealed partial class LedStrip
         Rect pod = layout.GearPodBounds;
         var face = pod;
         face.Inflate(-1.3, -1.3);
-        double corner = Math.Min(13, pod.Height * .21);
-        dc.DrawRoundedRectangle(GearPod, PodRim, face, corner, corner);
+        double corner = Math.Min(12, pod.Height * .24);
+        dc.DrawRoundedRectangle(HudArt.GearFace, HudArt.Hairline, face, corner, corner);
         if (string.IsNullOrEmpty(indicators.Gear)) return;
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double scale = Math.Min(ActualWidth / layout.Size.Width, ActualHeight / layout.Size.Height);

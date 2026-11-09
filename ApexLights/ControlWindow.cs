@@ -161,9 +161,13 @@ public sealed partial class ControlWindow : Window
         DockPanel.SetDock(contrast,Dock.Right); bar.Children.Add(contrast);
         var title=Label("Live preview",15); title.FontWeight=FontWeights.SemiBold; bar.Children.Add(title);
         DockPanel.SetDock(bar,Dock.Top); contents.Children.Add(bar);
-        var screen=new Grid{ClipToBounds=true}; stage.Child=screen;stage.CornerRadius=new(4);stage.Height=112;
+        var screen = new Grid { ClipToBounds = true };
+        screen.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
+        screen.RowDefinitions.Add(new RowDefinition());
+        stage.Child = screen; stage.CornerRadius = new(4); stage.Height = 138;
         SetBackdrop(); contents.Children.Add(stage);
         screen.Children.Add(preview);
+        Grid.SetRow(cueLayer, 1);
         screen.Children.Add(cueLayer);
         cueLayer.Children.Add(previewLeft);cueLayer.Children.Add(previewRight);cueLayer.Children.Add(previewFlag);
         cueLayer.SizeChanged+=(_,_)=>PositionPreview();
@@ -187,12 +191,11 @@ public sealed partial class ControlWindow : Window
     private void PositionPreview()
     {
         var options=app.Appearance.Indicators;
-        double width = cueLayer.ActualWidth;
-        double sideGutter = Math.Min(width * .30, Math.Max(56, width * options.SideInset + 44));
-        preview.Margin = new Thickness(sideGutter, 32, sideGutter, 12);
+        double margin = Math.Min(44, cueLayer.ActualWidth * .08);
+        preview.Margin = new Thickness(margin, 8, margin, 4);
         Place(previewLeft,CuePlace.Left,options.SideScale*.36);
         Place(previewRight,CuePlace.Right,options.SideScale*.36);
-        Place(previewFlag,CuePlace.Flag,options.FlagScale*.55);
+        Place(previewFlag,CuePlace.Flag,options.FlagScale*.45);
         void Place(AwarenessCue visual,CuePlace place,double scale)
         {
             var design=AwarenessCue.Design(place);
