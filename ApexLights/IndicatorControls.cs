@@ -122,6 +122,7 @@ public sealed partial class ControlWindow
 
         Heading("Peripheral bands");
         Check("Show peripheral bands", options.PeripheralBands, value => { options.PeripheralBands=value; Changed(); });
+        Hint("Side cues use a centered area up to four-thirds of the monitor height. Increase inset to bring both arrows closer together.");
         Range("Edge inset", 0, .35, options.SideInset, .01, v=>$"{v:P0}", v=>{options.SideInset=v;Changed();});
         CueOpacity(options);
     }

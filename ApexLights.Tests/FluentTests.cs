@@ -47,6 +47,23 @@ internal static partial class Program
         Assert(p.FloatingFlag==0,"no routine or celebratory forward alert");
     }
 
+    private static void ForwardView()
+    {
+        foreach (double dpi in new[]{1,1.25,1.5,2})
+        foreach (int width in new[]{1920,3840,5120})
+        {
+            const double height = 1200;
+            var left = CuePosition.Within(CuePlace.Left,width,height,150*dpi,156*dpi,.08,.22);
+            var right = CuePosition.Within(CuePlace.Right,width,height,150*dpi,156*dpi,.08,.22);
+            Assert(Math.Abs(width/2d-left.X - 672)<.01 && Math.Abs(right.X+150*dpi-width/2d - 672)<.01,
+                "extra monitor width should not push the cues outward");
+            var preview = CuePosition.Within(CuePlace.Left,width*.2,76,150*dpi*.2,56,.08,.22,width/height);
+            Assert(Math.Abs(preview.X-left.X*.2)<.01,"preview uses the monitor aspect");
+            var near = CuePosition.Within(CuePlace.Left,width,height,150*dpi,156*dpi,.35,.22);
+            Assert(near.X>left.X && near.X+150*dpi<=width/2d,"inset brings the cue closer without crossing center");
+        }
+    }
+
     private static void CueCoordinates()
     {
         foreach (var (width,height) in new[]{(1280,720),(1920,1080),(3440,1440),(5760,1080)})

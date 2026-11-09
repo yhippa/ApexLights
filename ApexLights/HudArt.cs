@@ -21,11 +21,11 @@ internal static class HudArt
         return Frozen(brush);
     }
 
-    internal static readonly Brush Shell = Gradient("#BD59758F", "#B6223140", "#C4354759");
+    internal static readonly Brush Shell = Gradient("#7659758F", "#6A152332", "#81354759");
     internal static readonly Pen ShellEdge = Frozen(new Pen(Gradient("#DADEEDFB", "#7058758A", "#BBC3DAEF"), 1));
     internal static readonly Brush Rail = Gradient("#9510212D", "#AB101B23", "#7423313D");
     internal static readonly Pen Hairline = Frozen(new Pen(Gradient("#907D94A8", "#3663798B", "#78879CAC"), .75));
-    internal static readonly Brush GearFace = Gradient("#AC425568", "#B71D2A38", "#B42B3B4A");
+    internal static readonly Pen GearKeyline = Frozen(new Pen(Solid("#D918232E"), 1.8) { LineJoin = PenLineJoin.Round });
     internal static readonly Brush RestingMark = Gradient("#ADDEE8F2", "#9B96A6B7", "#AAB6C3D0");
     internal static readonly Brush Amber = Gradient("#FFFFEA69", "#FFFFCE00", "#FFFFB900");
     internal static readonly Pen AmberRim = Frozen(new Pen(Solid("#EEFFF099"), 1.1));

@@ -8,12 +8,18 @@ public static class CuePosition
 {
     // The caller supplies dimensions in one coordinate space (screen pixels or preview DIPs).
     public static (double X, double Y) Within(CuePlace place, double width, double height,
-        double cueWidth, double cueHeight, double inset, double elevation)
+        double cueWidth, double cueHeight, double inset, double elevation, double? monitorAspect = null)
     {
+        // Scale lateral reach with display height, even when the monitor wraps around the cockpit.
+        // The settings preview supplies the real monitor aspect because its own height is compressed.
+        double aspect = monitorAspect ?? (height > 0 ? width / height : 1);
+        double span = width * Math.Min(1, (4.0 / 3) / Math.Max(.01, aspect));
+        double margin = (width - span) / 2 + span * inset;
+        margin = Math.Min(margin, Math.Max(0, width / 2 - cueWidth));
         double x = place switch
         {
-            CuePlace.Left => width * inset,
-            CuePlace.Right => width * (1 - inset) - cueWidth,
+            CuePlace.Left => margin,
+            CuePlace.Right => width - margin - cueWidth,
             _ => (width - cueWidth) / 2
         };
         double y = height * (place == CuePlace.Flag ? elevation : .48) - cueHeight / 2;

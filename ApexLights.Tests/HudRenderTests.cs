@@ -18,6 +18,37 @@ internal static partial class Program
         return data;
     }
 
+    private static void PillLayout()
+    {
+        var settings = new Settings();
+        settings.ApplyCockpitStyle();
+        foreach (var gear in Enum.GetValues<GearPosition>())
+        foreach (bool showFlag in new[]{true,false})
+        foreach (bool showSide in new[]{true,false})
+        {
+            settings.Indicators.GearPosition = gear;
+            settings.Indicators.ShowFlags = showFlag;
+            settings.Indicators.ShowProximity = showSide;
+            var layout = new StripLayout(settings);
+            var shell = layout.ShellBounds;
+            double padding = (layout.Size.Height - layout.LensHeight) / 2;
+            Assert(Math.Abs(shell.Left + shell.Right - layout.Size.Width) < .01, "pill off center");
+            for (int i=0;i<settings.Count;i++)
+            {
+                var rail = layout.FirstRail.Contains(new Point(layout.LensX(i), layout.Size.Height / 2))
+                    ? layout.FirstRail : layout.SecondRail;
+                double left = layout.LensX(i) - rail.Left;
+                double right = rail.Right - (layout.LensX(i) + settings.LensSize);
+                Assert(left >= padding - .01 && right >= padding - .01, "lens too close to end");
+                if (i == 0) Assert(Math.Abs(left-padding)<.01, "first lens end padding");
+                if (i == settings.Count-1) Assert(Math.Abs(right-padding)<.01, "last lens end padding");
+            }
+            if (showFlag) Assert(layout.FlagX >= shell.Right && layout.FlagX+layout.FlagWidth<=layout.Size.Width, "flag overlaps pill");
+        }
+        var glass = (LinearGradientBrush)HudArt.Shell;
+        foreach (var stop in glass.GradientStops) Assert(stop.Color.A < 140, "housing obscures the track");
+    }
+
     private static void GearInkBounds()
     {
         var options = new Settings();

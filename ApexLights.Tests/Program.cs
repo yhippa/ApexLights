@@ -17,6 +17,8 @@ internal static partial class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        Run("RPM pill keeps even lens margins and centers independently of the flag slot", PillLayout);
+        Run("Ultrawide cues stay in the forward view at every tested DPI", ForwardView);
         Run("Gear ink stays inside its reserved region across positions, sizes and DPI", GearInkBounds);
         Run("Flag and peripheral artwork renders distinct transparent silhouettes", CueSilhouettes);
         Run("Simultaneous alerts preserve gear and both sides during a shift", Priority);

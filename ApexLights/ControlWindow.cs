@@ -63,6 +63,8 @@ public sealed partial class ControlWindow : Window
         Closing += (_, e) => { if (!app.Exiting) { e.Cancel = true; Hide(); } };
         SystemParameters.StaticPropertyChanged += SystemPreferenceChanged;
         Closed += (_, _) => SystemParameters.StaticPropertyChanged -= SystemPreferenceChanged;
+        app.Overlay.LocationChanged += MonitorChanged;
+        Closed += (_, _) => app.Overlay.LocationChanged -= MonitorChanged;
         BuildShell();
         Configure();
         navigation.SelectedIndex = 0;
@@ -188,9 +190,13 @@ public sealed partial class ControlWindow : Window
         previewLeft.Opacity = previewRight.Opacity = previewFlag.Opacity = app.Appearance.Indicators.CueOpacity;
         PositionPreview();
     }
+    private void MonitorChanged(object? sender, EventArgs e) => PositionPreview();
+
     private void PositionPreview()
     {
         var options=app.Appearance.Indicators;
+        var bounds = Forms.Screen.FromHandle(new WindowInteropHelper(app.Overlay).Handle).Bounds;
+        double monitorAspect = (double)bounds.Width / bounds.Height;
         double margin = Math.Min(44, cueLayer.ActualWidth * .08);
         preview.Margin = new Thickness(margin, 8, margin, 4);
         Place(previewLeft,CuePlace.Left,options.SideScale*.36);
@@ -200,7 +206,7 @@ public sealed partial class ControlWindow : Window
         {
             var design=AwarenessCue.Design(place);
             visual.Width=design.Width*scale;visual.Height=design.Height*scale;
-            var (x,y)=CuePosition.Within(place,cueLayer.ActualWidth,cueLayer.ActualHeight,visual.Width,visual.Height,options.SideInset,options.FlagElevation);
+            var (x,y)=CuePosition.Within(place,cueLayer.ActualWidth,cueLayer.ActualHeight,visual.Width,visual.Height,options.SideInset,options.FlagElevation, monitorAspect);
             Canvas.SetLeft(visual,x);Canvas.SetTop(visual,y);
         }
     }
@@ -441,13 +447,13 @@ public sealed partial class ControlWindow : Window
     private void PlacementPage()
     {
         Heading("Overlay placement");
-        Hint("Enter Edit Mode to drag the strip. Drag its lower-right grip to resize.");
+        Hint("Center the RPM pill 30% down this monitor, or use Edit Mode to drag and resize it.");
         previousScale = S.Scale;
         Range("Scale", .5, 2.5, S.Scale, .01, v => $"{v:P0}", v =>
         {
             app.Overlay.PreviewAtScale(null); S.Scale = v; previousScale = v; Changed();
         });
-        var center = new Button { Content = "Center on primary display", HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 6, 0, 10) };
+        var center = new Button { Content = "Center on this monitor", HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 6, 0, 10) };
         center.Click += (_, _) => app.Overlay.Place(null, null);
         section.Children.Add(center);
         Heading("Startup");

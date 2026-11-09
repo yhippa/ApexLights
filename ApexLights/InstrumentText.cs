@@ -12,10 +12,16 @@ internal sealed class InstrumentText
     private readonly FormattedText text;
     private readonly Rect ink;
 
-    public InstrumentText(string value, Typeface face, double size, Brush color, double dpi)
+    private readonly Geometry? outline;
+    private readonly Pen? keyline;
+
+    public InstrumentText(string value, Typeface face, double size, Brush color, double dpi, Pen? keyline = null)
     {
         text = new FormattedText(value, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, size, color, dpi);
-        ink = text.BuildGeometry(new Point()).Bounds;
+        var glyphs = text.BuildGeometry(new Point());
+        ink = glyphs.Bounds;
+        this.keyline = keyline;
+        if (keyline != null) outline = HudArt.Frozen(glyphs);
         if (ink.IsEmpty) ink = new Rect(0, 0, text.Width, text.Height);
     }
 
@@ -36,6 +42,15 @@ internal sealed class InstrumentText
         if (fit < 1) dc.Pop();
     }
 
-    private void DrawAt(DrawingContext dc, double centerX, double inkTop) =>
-        dc.DrawText(text, new Point(centerX - ink.Left - ink.Width / 2, inkTop - ink.Top));
+    private void DrawAt(DrawingContext dc, double centerX, double inkTop)
+    {
+        var origin = new Point(centerX - ink.Left - ink.Width / 2, inkTop - ink.Top);
+        if (outline != null)
+        {
+            dc.PushTransform(new TranslateTransform(origin.X, origin.Y));
+            dc.DrawGeometry(null, keyline, outline);
+            dc.Pop();
+        }
+        dc.DrawText(text, origin);
+    }
 }

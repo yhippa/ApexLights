@@ -65,8 +65,6 @@ public sealed partial class LedStrip : FrameworkElement
             var shell = layout.ShellBounds;
             double corner = shell.Height / 2;
             dc.DrawRoundedRectangle(HudArt.Shell, HudArt.ShellEdge, shell, corner, corner);
-            if (!layout.FirstRail.IsEmpty) dc.DrawRoundedRectangle(HudArt.Rail, HudArt.Hairline, layout.FirstRail, corner * .7, corner * .7);
-            if (!layout.SecondRail.IsEmpty) dc.DrawRoundedRectangle(HudArt.Rail, HudArt.Hairline, layout.SecondRail, corner * .7, corner * .7);
         }
         DrawIndicators(dc, layout);
         double height = layout.LensHeight;

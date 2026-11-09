@@ -63,6 +63,7 @@ public sealed class Overlay : Window
         {
             if (!Editing || e.Handled || grip.IsMouseOver) return;
             DragMove();
+            settings.CenteredPlacement = false;
             CapturePosition();
         };
         SourceInitialized += (_, _) =>
@@ -75,8 +76,10 @@ public sealed class Overlay : Window
         };
         ContentRendered += (_, _) =>
         {
-            if (!placed) { placed = true; Place(settings.X, settings.Y); }
+            if (!placed) { placed = true; RestorePlacement(); }
         };
+        SizeChanged += (_, _) => RecenterAfterLayout();
+        DpiChanged += (_, _) => RecenterAfterLayout();
         Closed += (_, _) => UnregisterHotKey(hwnd, 1);
         ApplySize();
     }
@@ -120,26 +123,68 @@ public sealed class Overlay : Window
         return IntPtr.Zero;
     }
 
-    // Coordinates and bounds come from Win32 in physical pixels, including negative monitor origins.
+    private void RestorePlacement()
+    {
+        if (settings.X is not int x || settings.Y is not int y)
+        {
+            Position(Forms.Screen.PrimaryScreen!, null, null);
+            return;
+        }
+        var point = new Drawing.Point(x, y);
+        var screen = Forms.Screen.FromPoint(point);
+        if (!screen.Bounds.Contains(point)) { Position(Forms.Screen.PrimaryScreen!, null, null); return; }
+        bool centered = settings.CenteredPlacement ?? WasLegacyDefault(screen, x, y);
+        Position(screen, centered ? null : x, centered ? null : y);
+    }
+
+    private bool WasLegacyDefault(Forms.Screen screen, int x, int y)
+    {
+        var area = screen.WorkingArea;
+        if (y != area.Top + Math.Min(100, area.Height / 8)) return false;
+        // Early versions saved the auto-position as a top-left corner before any accessories were enabled.
+        double bareWidth = 18 + settings.Count * settings.LensSize + (settings.Count - 1) * settings.Gap;
+        double dpi = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        bool Matches(double width) => Math.Abs(x - (area.Left + (area.Width - width) / 2)) <= 1;
+        return Matches(bareWidth * settings.Scale * dpi) || Matches(373 * dpi);
+    }
+
+    private bool recenterPending;
+    private void RecenterAfterLayout()
+    {
+        if (!placed || settings.CenteredPlacement != true || recenterPending) return;
+        recenterPending = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+        {
+            recenterPending = false;
+            if (IsVisible && settings.CenteredPlacement == true) Place(null, null);
+        });
+    }
+
+    // Win32 screen and window coordinates are physical pixels, including negative monitor origins.
     public void Place(int? x, int? y)
     {
-        GetWindowRect(hwnd, out var rect);
-        int width = Math.Max(1, rect.Right - rect.Left), height = Math.Max(1, rect.Bottom - rect.Top);
-        var screen = Forms.Screen.PrimaryScreen!;
-        bool restore = x.HasValue && y.HasValue;
-        if (restore)
+        if (x is int left && y is int top)
         {
-            var wanted = new Drawing.Point(x!.Value, y!.Value);
-            screen = Forms.Screen.FromPoint(wanted);
-            restore = screen.Bounds.Contains(wanted);
-            if (!restore) screen = Forms.Screen.PrimaryScreen!;
+            var point = new Drawing.Point(left, top);
+            var target = Forms.Screen.FromPoint(point);
+            if (target.Bounds.Contains(point)) { Position(target, left, top); return; }
         }
+        Position(Forms.Screen.FromHandle(hwnd), null, null);
+    }
+
+    private void Position(Forms.Screen screen, int? x, int? y)
+    {
+        if (!GetWindowRect(hwnd, out var rect)) return;
+        int width = rect.Right - rect.Left, height = rect.Bottom - rect.Top;
         var area = screen.WorkingArea;
-        int left = restore ? x!.Value : area.Left + (area.Width - width) / 2;
-        int top = restore ? y!.Value : area.Top + Math.Min(100, area.Height / 8);
+        var bounds = screen.Bounds;
+        bool centered = !x.HasValue || !y.HasValue;
+        int left = x ?? bounds.Left + (bounds.Width - width) / 2;
+        int top = y ?? bounds.Top + (int)Math.Round(bounds.Height * .30 - height / 2d);
         left = Math.Clamp(left, area.Left, Math.Max(area.Left, area.Right - width));
         top = Math.Clamp(top, area.Top, Math.Max(area.Top, area.Bottom - height));
-        SetWindowPos(hwnd, IntPtr.Zero, left, top, 0, 0, 0x15); // NOSIZE | NOZORDER | NOACTIVATE
+        settings.CenteredPlacement = centered;
+        SetWindowPos(hwnd, IntPtr.Zero, left, top, 0, 0, 0x15);
         CapturePosition();
     }
 
@@ -155,7 +200,8 @@ public sealed class Overlay : Window
     {
         if (!placed || !GetWindowRect(hwnd,out var bounds)) return;
         var rect = Drawing.Rectangle.FromLTRB(bounds.Left,bounds.Top,bounds.Right,bounds.Bottom);
-        if (!Forms.Screen.FromRectangle(rect).WorkingArea.Contains(rect)) Place(bounds.Left,bounds.Top);
+        if (settings.CenteredPlacement == true) Place(null, null);
+        else if (!Forms.Screen.FromRectangle(rect).WorkingArea.Contains(rect)) Place(bounds.Left,bounds.Top);
     }
 
     [StructLayout(LayoutKind.Sequential)] private struct Bounds { public int Left, Top, Right, Bottom; }

@@ -8,10 +8,10 @@ namespace ApexLights;
 internal readonly struct StripLayout
 {
     public const double SideTileWidth = 48, SideTileHeight = 35, FlagTileHeight = 36, CueGap = 6;
-    private const double RailPadding = 8;
+    private readonly double lensPadding;
     private readonly Settings s;
     private readonly int firstCount;
-    private readonly double margin;
+    private readonly double sideMargin;
     public Rect FirstRail { get; }
     public Rect SecondRail { get; }
     public Rect GearPodBounds { get; }
@@ -31,38 +31,40 @@ internal readonly struct StripLayout
         {
             GearPosition.Left => 0, GearPosition.Center => (s.Count + 1) / 2, _ => s.Count
         };
-        margin = opt.ShowFlags || opt.ShowProximity || opt.ShowGear ? 7 : 1;
         double shellH = Math.Max(LensHeight + 16, Math.Max(opt.ShowProximity ? SideTileHeight * opt.SideScale + 11 : 0,
             opt.ShowFlags ? FlagTileHeight * opt.FlagScale + 10 : 0));
         double podH = opt.ShowGear ? Math.Max(opt.GearSize * 1.35 + 6, Math.Min(54, LensHeight + 36)) : 0;
         double height = Math.Max(shellH, podH + (opt.ShowGear ? 2 : 0));
-        double railH = Math.Max(LensHeight + 6, shellH - 10);
-        double side = opt.ShowProximity ? SideTileWidth * opt.SideScale + CueGap : 0;
-        double x = margin + side;
+        double padding = (height - LensHeight) / 2;
+        lensPadding = padding;
+        sideMargin = opt.ShowProximity ? Math.Max(6, (height - SideTileHeight * opt.SideScale) / 2) : 0;
+        // Reserve equal space outside the pill so a right-hand flag cannot shift the instrument off center.
+        double statusSpace = opt.ShowFlags ? FlagWidth + CueGap : 0;
+        double side = opt.ShowProximity ? SideTileWidth * opt.SideScale : 0;
+        double x = statusSpace + sideMargin + side;
         Rect Rail(int count, double left) => count == 0 ? Rect.Empty :
-            new Rect(left, (height - railH) / 2, 2 * RailPadding + count * settings.LensSize + (count - 1) * settings.Gap, railH);
+            new Rect(left, 0, 2 * padding + count * settings.LensSize + (count - 1) * settings.Gap, height);
         FirstRail = Rail(firstCount, x);
         if (!FirstRail.IsEmpty) x = FirstRail.Right;
         GearPodBounds = Rect.Empty;
         if (opt.ShowGear)
         {
-            if (firstCount > 0) x += CueGap;
             GearPodBounds = new Rect(x, (height - podH) / 2, Math.Max(opt.GearSize * 1.6, podH * 1.04), podH);
             x = GearPodBounds.Right;
-            if (firstCount < s.Count) x += CueGap;
         }
         SecondRail = Rail(s.Count - firstCount, x);
         if (!SecondRail.IsEmpty) x = SecondRail.Right;
-        FlagX = x + CueGap;
-        if (opt.ShowFlags) x = FlagX + FlagWidth;
-        Size = new(x + side + margin, height);
-        ShellBounds = new Rect(.6, .6, Size.Width - 1.2, height - 1.2);
+        double pillRight = x + side + sideMargin;
+        Size = new(pillRight + statusSpace, height);
+        ShellBounds = new Rect(statusSpace + .6, .6, pillRight - statusSpace - 1.2, height - 1.2);
+        FlagX = pillRight + CueGap;
     }
 
     public double LensX(int index) => index < firstCount
-        ? FirstRail.X + RailPadding + index * (s.LensSize + s.Gap)
-        : SecondRail.X + RailPadding + (index - firstCount) * (s.LensSize + s.Gap);
-    public double SideX(bool left) => left ? margin : Size.Width - margin - SideTileWidth * s.Indicators.SideScale;
+        ? FirstRail.X + lensPadding + index * (s.LensSize + s.Gap)
+        : SecondRail.X + lensPadding + (index - firstCount) * (s.LensSize + s.Gap);
+    public double SideX(bool left) => left ? ShellBounds.Left - .6 + sideMargin :
+        ShellBounds.Right + .6 - sideMargin - SideTileWidth * s.Indicators.SideScale;
 }
 
 public sealed partial class LedStrip
@@ -89,10 +91,15 @@ public sealed partial class LedStrip
         if (!settings.Indicators.ShowGear) return;
         var options = settings.Indicators;
         Rect pod = layout.GearPodBounds;
-        var face = pod;
-        face.Inflate(-1.3, -1.3);
-        double corner = Math.Min(12, pod.Height * .24);
-        dc.DrawRoundedRectangle(HudArt.GearFace, HudArt.Hairline, face, corner, corner);
+        if (settings.DarkHousing)
+        {
+            // A hairline separates the gear from the adjacent bank inside the same continuous surface.
+            double inset = pod.Height * .22;
+            if (!layout.FirstRail.IsEmpty)
+                dc.DrawLine(HudArt.Hairline, new Point(pod.Left, pod.Top + inset), new Point(pod.Left, pod.Bottom - inset));
+            if (!layout.SecondRail.IsEmpty)
+                dc.DrawLine(HudArt.Hairline, new Point(pod.Right, pod.Top + inset), new Point(pod.Right, pod.Bottom - inset));
+        }
         if (string.IsNullOrEmpty(indicators.Gear)) return;
         double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double scale = Math.Min(ActualWidth / layout.Size.Width, ActualHeight / layout.Size.Height);
@@ -103,7 +110,7 @@ public sealed partial class LedStrip
             gearText = new InstrumentText(indicators.Gear,
                 new Typeface(new FontFamily(options.GearFont), FontStyles.Italic,
                     compact ? FontWeights.Black : FontWeights.ExtraBold, FontStretches.Normal),
-                options.GearSize, Brushes.White, dpi);
+                options.GearSize, Brushes.White, dpi, HudArt.GearKeyline);
         }
         pod.Inflate(-4, -4);
         gearText.DrawCentered(dc, pod);

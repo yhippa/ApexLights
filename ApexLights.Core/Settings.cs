@@ -32,6 +32,7 @@ public sealed class Settings
     public FlashTrigger Flash { get; set; }
     public int Hz { get; set; } = 4;
     public int Offset { get; set; }
+    public bool? CenteredPlacement { get; set; }
     public int? X { get; set; }
     public int? Y { get; set; }
     public Thresholds Demo { get; set; } = Thresholds.Default;
