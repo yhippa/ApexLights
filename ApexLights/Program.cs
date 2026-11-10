@@ -52,7 +52,7 @@ public sealed class Runtime : IDisposable
     private bool previousDemo;
     private string? previousCar;
     private Settings? demoAppearance;
-    public bool DemoUsesCockpit { get; private set; } = true;
+    public bool DemoUsesCockpit { get; private set; }
     private double? sweepFromRpm;
     public Settings Config { get; }
     public Settings Appearance => demoAppearance ?? Config;

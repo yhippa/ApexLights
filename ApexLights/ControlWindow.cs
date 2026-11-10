@@ -55,7 +55,7 @@ public sealed partial class ControlWindow : Window
         Width = Math.Min(980, work.Width - 16); Height = Math.Min(800, work.Height - 16);
         MinWidth = Math.Min(660, Width); MinHeight = Math.Min(440, Height);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        ShowInTaskbar = false; UseLayoutRounding = true; FontSize = 14;
+        ShowInTaskbar = true; UseLayoutRounding = true; FontSize = 14;
         Resources.MergedDictionaries.Add(Dictionary("Theme.xaml"));
         ApplyTheme();
         SourceInitialized += (_, _) => ApplyWindowTheme();

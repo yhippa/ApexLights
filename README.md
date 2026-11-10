@@ -18,7 +18,7 @@ Settings uses the Fluent controls included in .NET 10 WPF. Its system accent, ke
 
 ## Tune the strip
 
-In **Demo / Testing → Input → Demo**, the **Demo look** applies to every scenario and the manual controls. **Cockpit** is the default and uses the neon palette; **My setup** previews your saved driving appearance. Switching scenarios changes only the simulated inputs. **Full lights** stages fourth gear, the full LED bank, two cars on the right, and a brief green-flag event.
+In **Demo / Testing → Input → Demo**, the **Demo look** applies to every scenario and the manual controls. **My setup** is the default. It uses the same LEDs, gear, and dimensions as live driving. Choose **Cockpit** to preview the neon preset. Switching scenarios changes only the simulated inputs. **Full lights** stages fourth gear, the full LED bank, two cars on the right, and a brief green-flag event.
 
 To use that appearance in a race, click **Overlay Appearance → Apply cockpit preset**. The preset turns on the gear pod, status panel and side indicators, and selects twelve blade LEDs with green, gold, red and blue zones. Your thresholds, car overrides, flash settings, position and scale are preserved. The LEDs and gear share one translucent pill with a single divider next to the gear. The optional side marks sit at its ends. Amber indicates an actual alongside report. With the housing off, inactive endcaps disappear.
 
