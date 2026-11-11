@@ -23,12 +23,10 @@ public sealed partial class ControlWindow : Window
     private StackPanel section = new();
     private readonly TextBlock pageTitle = new();
     private readonly Border stage = new();
-    private readonly Canvas cueLayer = new() { IsHitTestVisible=false };
-    private readonly AwarenessCue previewLeft = new(CuePlace.Left), previewRight = new(CuePlace.Right), previewFlag = new(CuePlace.Flag);
     private readonly ListBox navigation = new() { BorderThickness = new(0), Background = Brushes.Transparent };
     private ResourceDictionary? palette;
     private readonly Dictionary<string,bool> disclosure = new();
-    private static readonly string[] Sections = ["Demo / Testing","Shift Lights","Gear Indicator","Proximity Awareness","Racing Flags","Overlay Appearance"];
+    private static readonly string[] Sections = ["Shift Lights","Gear Indicator","Overlay Appearance","Input / Calibration"];
     private readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     private readonly TextBlock sourceLabel = Label("", 11), reading = Label("", 13);
     private readonly TextBlock notice = Label("", 12);
@@ -63,8 +61,6 @@ public sealed partial class ControlWindow : Window
         Closing += (_, e) => { if (!app.Exiting) { e.Cancel = true; Hide(); } };
         SystemParameters.StaticPropertyChanged += SystemPreferenceChanged;
         Closed += (_, _) => SystemParameters.StaticPropertyChanged -= SystemPreferenceChanged;
-        app.Overlay.LocationChanged += MonitorChanged;
-        Closed += (_, _) => app.Overlay.LocationChanged -= MonitorChanged;
         BuildShell();
         Configure();
         navigation.SelectedIndex = 0;
@@ -122,7 +118,7 @@ public sealed partial class ControlWindow : Window
         navigation.Margin=new(8,0,8,0); navigation.HorizontalContentAlignment=HorizontalAlignment.Stretch;
         navigation.SetResourceReference(ItemsControl.ItemContainerStyleProperty, "NavigationItem");
         Named(navigation,"Settings sections");
-        string[] icons=["\uE768","\uE9D9","\uE8EF","\uE7B8","\uE7C1","\uE7F4"];
+        string[] icons=["\uE9D9","\uE8EF","\uE7F4","\uE768"];
         for (int i=0;i<Sections.Length;i++)
         {
             var line=new StackPanel{Orientation=Orientation.Horizontal};
@@ -164,15 +160,10 @@ public sealed partial class ControlWindow : Window
         var title=Label("Live preview",15); title.FontWeight=FontWeights.SemiBold; bar.Children.Add(title);
         DockPanel.SetDock(bar,Dock.Top); contents.Children.Add(bar);
         var screen = new Grid { ClipToBounds = true };
-        screen.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
-        screen.RowDefinitions.Add(new RowDefinition());
-        stage.Child = screen; stage.CornerRadius = new(4); stage.Height = 138;
+        stage.Child = screen; stage.CornerRadius = new(4); stage.Height = 74;
         SetBackdrop(); contents.Children.Add(stage);
+        preview.Margin = new Thickness(24, 8, 24, 8);
         screen.Children.Add(preview);
-        Grid.SetRow(cueLayer, 1);
-        screen.Children.Add(cueLayer);
-        cueLayer.Children.Add(previewLeft);cueLayer.Children.Add(previewRight);cueLayer.Children.Add(previewFlag);
-        cueLayer.SizeChanged+=(_,_)=>PositionPreview();
         var meta=new DockPanel{Margin=new(0,8,0,0)}; reading.HorizontalAlignment=HorizontalAlignment.Right; reading.FontFamily=Mono;
         DockPanel.SetDock(reading,Dock.Right);meta.Children.Add(reading); sourceLabel.FontFamily=Mono;
         sourceLabel.SetResourceReference(TextBlock.ForegroundProperty,"UiMuted");meta.Children.Add(sourceLabel);
@@ -185,44 +176,19 @@ public sealed partial class ControlWindow : Window
 
     public void Configure()
     {
-        preview.Configure(app.Appearance);
+        preview.Configure(S);
         preview.Opacity = S.Opacity;
-        previewLeft.Opacity = previewRight.Opacity = previewFlag.Opacity = app.Appearance.Indicators.CueOpacity;
-        PositionPreview();
-    }
-    private void MonitorChanged(object? sender, EventArgs e) => PositionPreview();
-
-    private void PositionPreview()
-    {
-        var options=app.Appearance.Indicators;
-        var bounds = Forms.Screen.FromHandle(new WindowInteropHelper(app.Overlay).Handle).Bounds;
-        double monitorAspect = (double)bounds.Width / bounds.Height;
-        double margin = Math.Min(44, cueLayer.ActualWidth * .08);
-        preview.Margin = new Thickness(margin, 8, margin, 4);
-        Place(previewLeft,CuePlace.Left,options.SideScale*.36);
-        Place(previewRight,CuePlace.Right,options.SideScale*.36);
-        Place(previewFlag,CuePlace.Flag,options.FlagScale*.45);
-        void Place(AwarenessCue visual,CuePlace place,double scale)
-        {
-            var design=AwarenessCue.Design(place);
-            visual.Width=design.Width*scale;visual.Height=design.Height*scale;
-            var (x,y)=CuePosition.Within(place,cueLayer.ActualWidth,cueLayer.ActualHeight,visual.Width,visual.Height,options.SideInset,options.FlagElevation, monitorAspect);
-            Canvas.SetLeft(visual,x);Canvas.SetTop(visual,y);
-        }
     }
     public void RefreshSourceSelection() => BuildPage();
-    public void DisplayFrame(LightFrame frame, IndicatorFrame indicators, IndicatorFrame cues)
+    public void DisplayFrame(LightFrame frame, IndicatorFrame indicators)
     {
         preview.Display(frame);
         preview.DisplayIndicators(indicators);
-        var opts = app.Appearance.Indicators;
-        previewLeft.Display(cues,opts); previewRight.Display(cues,opts); previewFlag.Display(cues,opts);
     }
     public void ModeChanged() { edit.Content = app.Overlay.Editing ? "Lock overlay" : "Edit overlay"; }
 
-    public void Display(LightFrame frame, double rpm, int? gear, bool isDemo, Sample? live, string? warning)
+    public void Display(double rpm, int? gear, bool isDemo, Sample? live, string? warning)
     {
-        preview.Display(frame);
         string identity = live?.Car.Key ?? "";
         if (isDemo != demo || identity != carKey || (live is not null && live.Car.Points != sessionPoints))
         {
@@ -237,7 +203,7 @@ public sealed partial class ControlWindow : Window
         string output = live == null && (!demo || !app.DemoSignals.Connected) ? "— RPM" : $"{rpm:N0} RPM" + (gear != null ? $"   G {GearDisplay.Format(gear)}" : "");
         if (reading.Text != output) reading.Text = output;
         if (previousWarning != warning) { previousWarning = warning; SetNotice(warning ?? ""); }
-        if (tab == 5 && previousScale != S.Scale) BuildPage();
+        if (tab == 2 && previousScale != S.Scale) BuildPage();
     }
 
     private void SetNotice(string text) { notice.Text = text; notice.Visibility = text == "" ? Visibility.Collapsed : Visibility.Visible; }
@@ -251,12 +217,10 @@ public sealed partial class ControlWindow : Window
         pageTitle.Text = Sections[tab];
         switch (tab)
         {
-            case 0: TelemetryPage(); break;
-            case 1: ShiftLightsPage(); break;
-            case 2: GearPage(); break;
-            case 3: ProximityPage(); break;
-            case 4: FlagsPage(); break;
-            case 5: AppearancePage(); break;
+            case 0: ShiftLightsPage(); break;
+            case 1: GearPage(); break;
+            case 2: AppearancePage(); break;
+            case 3: TelemetryPage(); break;
         }
     }
 
@@ -320,31 +284,29 @@ public sealed partial class ControlWindow : Window
 
     private void Changed()
     {
-        if (tab != 0 && demo && app.DemoUsesCockpit && lookSelector?.IsLoaded == true)
-            lookSelector.SelectedIndex = 1;
         app.SettingsChanged();
     }
 
     private void TelemetryPage()
     {
         Heading("Signal source");
-        Choices("Input", ["Automatic", "Demo", "iRacing"], (int)S.Source, i =>
+        Choices("Input", ["iRacing", "Demo"], S.Source == SourceMode.Demo ? 1 : 0, i =>
         {
-            app.SetSource((SourceMode)i); BuildPage();
+            app.SetSource(i == 1 ? SourceMode.Demo : SourceMode.Live);
         });
-        if (S.Source == SourceMode.Automatic) Hint("Runs a demo sweep until the first live session connects.");
         if (demo)
         {
-            DemoScenarios();
             Heading("Demo controls");
             var sweep = Check("Sweep RPM automatically", app.Sweep, value => app.Sweep = value);
             Range("Manual RPM", 0, app.DemoMaximum, app.ManualRpm, 1, v => $"{v:N0}", value =>
             {
                 app.Sweep = false; sweep.IsChecked = false; app.ManualRpm = value;
             });
+            Range("Demo gear", -1, 12, app.DemoSignals.Gear, 1, n => GearDisplay.Format((int)n),
+                n => { app.DemoSignals.Gear = (int)n; app.RefreshDemo(); });
             Heading("Demo thresholds", true);
             ThresholdEditor(S.Demo, true);
-            DemoIndicators();
+
         }
         else if (carKey != "")
         {
@@ -397,11 +359,6 @@ public sealed partial class ControlWindow : Window
         Heading("Settings appearance");
         Choices("Theme", ["Dark", "Light"], (int)S.Theme, i => { S.Theme=(SettingsTheme)i; ApplyTheme(); app.InterfaceChanged(); });
         Heading("Cockpit appearance");
-        if (demo) DemoLookPicker();
-        var cockpit = new Button { Content = "Apply cockpit preset", HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new(0, 5, 0, 3), ToolTip = "Use neon LEDs, a large right-hand gear pod, side chevrons and the status window." };
-        cockpit.Click += (_, _) => { app.ApplyCockpitPreset(); BuildPage(); SetNotice("Cockpit preset applied."); };
-        section.Children.Add(cockpit);
         Range("Opacity", .15, 1, S.Opacity, .01, v => $"{v:P0}", v => { S.Opacity = v; Changed(); });
         Check("Dark strip housing", S.DarkHousing, v => { S.DarkHousing = v; Changed(); });
         PlacementPage();
@@ -410,7 +367,6 @@ public sealed partial class ControlWindow : Window
     private void ShiftLightsPage()
     {
         Heading("LED strip");
-        if (demo) DemoLookPicker();
         Choices("Segments", ["10", "11", "12"], S.Count - 10, i => { S.Count = 10 + i; Changed(); });
         Choices("Shape", ["Blade", "Round", "Square"], (int)S.Shape, i => { S.Shape = (LensShape)i; Changed(); });
         Choices("Progression", ["Left → right", "Right → left", "Outside in"], (int)S.Direction, i => { S.Direction = (Progression)i; Changed(); });
@@ -451,7 +407,7 @@ public sealed partial class ControlWindow : Window
         previousScale = S.Scale;
         Range("Scale", .5, 2.5, S.Scale, .01, v => $"{v:P0}", v =>
         {
-            app.Overlay.PreviewAtScale(null); S.Scale = v; previousScale = v; Changed();
+            S.Scale = v; previousScale = v; Changed();
         });
         var center = new Button { Content = "Center on this monitor", HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 6, 0, 10) };
         center.Click += (_, _) => app.Overlay.Place(null, null);

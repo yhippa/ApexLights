@@ -27,7 +27,7 @@ public sealed class Settings
     public double Gap { get; set; } = 5;
     public double Scale { get; set; } = 1;
     public bool DarkHousing { get; set; } = true;
-    public bool StartMinimized { get; set; }
+    public bool StartMinimized { get; set; } = true;
     public SourceMode Source { get; set; }
     public FlashTrigger Flash { get; set; }
     public int Hz { get; set; } = 4;
@@ -37,6 +37,14 @@ public sealed class Settings
     public int? Y { get; set; }
     public Thresholds Demo { get; set; } = Thresholds.Default;
     public Dictionary<string, Thresholds> Cars { get; set; } = new();
+
+    public void UseShiftLightLayout()
+    {
+        Indicators.ShowProximity = false;
+        Indicators.PeripheralBands = false;
+        Indicators.ShowFlags = false;
+        Indicators.FloatingFlag = false;
+    }
 
     public void ApplyCockpitStyle()
     {

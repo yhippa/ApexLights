@@ -28,7 +28,7 @@ public sealed class IndicatorSettings
     public double AlertSeconds { get; set; } = 4;
     public bool AnimateEntry { get; set; } = true;
     public RaceFlag EnabledFlags { get; set; } = IndicatorPolicy.Supported;
-    public bool ShowGear { get; set; }
+    public bool ShowGear { get; set; } = true;
     public GearPosition GearPosition { get; set; } = GearPosition.Right;
     public double GearSize { get; set; } = 24;
     public string GearFont { get; set; } = "Consolas";

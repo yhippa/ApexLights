@@ -38,8 +38,7 @@ public sealed class Runtime : IDisposable
     private readonly Application application;
     private readonly SettingsStore store;
     private readonly ShiftLights engine = new();
-    private readonly IndicatorPolicy policy = new();
-    private readonly AwarenessDisplay awareness;
+    private SessionKey? previousSession;
     private readonly DispatcherTimer update = new(DispatcherPriority.Render), save = new();
     private readonly Stopwatch time = Stopwatch.StartNew();
     private readonly bool forceOpen;
@@ -47,15 +46,11 @@ public sealed class Runtime : IDisposable
     private ControlWindow? controls;
     private Forms.NotifyIcon? tray;
     private Forms.ToolStripMenuItem? editItem;
-    private bool receivedLive, dirty;
+    private bool dirty;
     private double lastReadout = -1, sweepOrigin;
     private bool previousDemo;
     private string? previousCar;
-    private Settings? demoAppearance;
-    public bool DemoUsesCockpit { get; private set; }
-    private double? sweepFromRpm;
     public Settings Config { get; }
-    public Settings Appearance => demoAppearance ?? Config;
     public Overlay Overlay { get; }
     public bool Exiting { get; private set; }
     public DemoSignals DemoSignals { get; } = new();
@@ -79,8 +74,9 @@ public sealed class Runtime : IDisposable
         Config = store.Load();
         if (demo) Config.Source = SourceMode.Demo;
         forceOpen = demo;
-        Overlay = new Overlay(Config, ScheduleSave, ToggleEdit);
-        awareness = new AwarenessDisplay(Overlay);
+        var oldSize = LedStrip.Footprint(Config);
+        Config.UseShiftLightLayout();
+        Overlay = new Overlay(Config, ScheduleSave, ToggleEdit, oldSize);
         save.Interval = TimeSpan.FromMilliseconds(450);
         save.Tick += (_, _) => { save.Stop(); Flush(); };
         update.Tick += (_, _) => Tick();
@@ -89,7 +85,6 @@ public sealed class Runtime : IDisposable
     public void Start()
     {
         Overlay.Show();
-        awareness.Configure(Config.Indicators);
         controls = new ControlWindow(this);
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open settings", null, (_, _) => OpenSettings());
@@ -97,7 +92,6 @@ public sealed class Runtime : IDisposable
         menu.Items.Add(editItem);
         menu.Items.Add("Demo Mode", null, (_, _) => { SetSource(SourceMode.Demo); OpenSettings(); });
         menu.Items.Add("Use iRacing", null, (_, _) => SetSource(SourceMode.Live));
-        menu.Items.Add("Dismiss current flag", null, (_, _) => DismissFlag());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit ApexLights", null, (_, _) => application.Shutdown());
         using var resource = Application.GetResourceStream(new Uri("pack://application:,,,/ApexLights;component/apex.ico"))!.Stream;
@@ -129,10 +123,7 @@ public sealed class Runtime : IDisposable
 
     public void SetSource(SourceMode mode)
     {
-        Overlay.PreviewAtScale(null);
         Config.Source = mode;
-        policy.Reset();
-        receivedLive = false;
         UpdateFeed();
         ScheduleSave();
         lastReadout = -1;
@@ -141,41 +132,6 @@ public sealed class Runtime : IDisposable
     }
 
     public void RefreshDemo() { lastReadout = -1; Tick(); }
-
-    public void SetDemoLook(bool cockpit)
-    {
-        DemoUsesCockpit = cockpit;
-        RefreshDemo();
-    }
-
-    public void ClearDemoAlerts()
-    {
-        DemoSignals.ClearAlerts();
-        policy.Reset();
-        RefreshDemo();
-        controls?.RefreshSourceSelection();
-    }
-
-    public void ApplyScenario(DemoScenario scenario)
-    {
-        DemoSignals.BeginScenario();
-        RefreshDemo(); // Establish a known quiet sample before staging an actual rising edge.
-        var drive = DemoSignals.Apply(scenario, Config.Demo, Config.Offset, Config.Flash);
-        ManualRpm = Math.Min(drive.Rpm, DemoMaximum);
-        Sweep = drive.Sweep;
-        sweepFromRpm = drive.Sweep ? ManualRpm : null;
-        RefreshDemo();
-        controls?.RefreshSourceSelection();
-    }
-
-    public void DismissFlag() { policy.Dismiss(); Tick(); }
-
-    public void ApplyCockpitPreset()
-    {
-        Config.ApplyCockpitStyle();
-        DemoUsesCockpit = false;
-        SettingsChanged();
-    }
 
     private void UpdateFeed()
     {
@@ -186,7 +142,6 @@ public sealed class Runtime : IDisposable
     public void SettingsChanged()
     {
         ManualRpm = Math.Min(ManualRpm, DemoMaximum);
-        if (demoAppearance != null) demoAppearance = DemoUsesCockpit ? Config.PreviewAllIndicators(cockpitStyle: true) : null;
         UpdateAppearance();
         ScheduleSave();
         lastReadout = -1;
@@ -195,8 +150,7 @@ public sealed class Runtime : IDisposable
 
     private void UpdateAppearance()
     {
-        Overlay.ApplySize(Appearance);
-        awareness.Configure(Appearance.Indicators);
+        Overlay.ApplySize();
         controls?.Configure();
     }
 
@@ -215,25 +169,17 @@ public sealed class Runtime : IDisposable
     private void Tick()
     {
         var live = feed?.Latest;
-        receivedLive |= live != null;
-        bool demo = Config.Source == SourceMode.Demo ||
-            (Config.Source == SourceMode.Automatic && live == null && !receivedLive);
+        bool demo = Config.Source == SourceMode.Demo;
         var points = live == null ? Config.Demo : Config.Cars.GetValueOrDefault(live.Car.Key, live.Car.Points);
         double seconds = time.Elapsed.TotalSeconds;
         bool demoOnline = demo && DemoSignals.Connected;
-        if ((demo && DemoUsesCockpit) != (demoAppearance != null))
-        {
-            demoAppearance = demo && DemoUsesCockpit ? Config.PreviewAllIndicators(cockpitStyle: true) : null;
-            UpdateAppearance();
-        }
-        if (!demo) Overlay.PreviewAtScale(null);
         string? car = live?.Car.Key;
-        if (car != previousCar || demoOnline != previousDemo)
+        if (car != previousCar || demoOnline != previousDemo || previousSession != live?.Signal.Session)
         {
             engine.Evaluate(0, points, Config.Count, 0, FlashTrigger.Off, 1, seconds);
-            policy.Reset();
             sweepOrigin = seconds;
             previousCar = car;
+            previousSession = live?.Signal.Session;
             previousDemo = demoOnline;
         }
         double rpm = live?.Rpm ?? 0;
@@ -241,36 +187,26 @@ public sealed class Runtime : IDisposable
         {
             // A slow climb and a short downshift make every zone and flash interval visible.
             double floor = Math.Max(0, (points.First + Config.Offset) * .84);
-            if (sweepFromRpm is { } start)
-            {
-                double fraction = Math.Clamp((start - floor) / (DemoMaximum - floor), 0, 1);
-                sweepOrigin = seconds + 1.7 - fraction * 5.2;
-                sweepFromRpm = null;
-            }
             double cycle = (seconds - sweepOrigin + 1.7) % 6;
             double progress = cycle < 5.2 ? cycle / 5.2 : (6 - cycle) / 0.8;
             rpm = Sweep ? floor + (DemoMaximum - floor) * progress : ManualRpm;
         }
-        var frame = engine.Evaluate(rpm, points, Appearance.Count, Config.Offset, Config.Flash, Config.Hz, seconds);
+        var frame = engine.Evaluate(rpm, points, Config.Count, Config.Offset, Config.Flash, Config.Hz, seconds);
         RaceSignal? signal = demo ? DemoSignals.Read() : live?.Signal;
         int? gear = signal?.Gear;
-        var indicators = policy.Evaluate(signal, Appearance.Indicators, frame, seconds);
-        if (indicators.Accent > 0 && !SystemParameters.ClientAreaAnimation)
-            indicators = indicators with { Accent = 0 };
+        var indicators = new IndicatorFrame(Config.Indicators.ShowGear ? GearDisplay.Format(gear) : "");
         Overlay.Strip.Display(frame);
         Overlay.Strip.DisplayIndicators(indicators);
-        var cues = indicators with { Flag = policy.FloatingFlag };
-        awareness.Display(cues);
-        bool animated = live != null || (demoOnline && Sweep) || frame.Flashing || indicators.Accent > 0;
+        bool animated = live != null || (demoOnline && Sweep) || frame.Flashing;
         var interval = TimeSpan.FromMilliseconds(animated ? 16 : 180);
         if (update.Interval != interval) update.Interval = interval;
-        if (controls?.IsVisible == true)
+        if (controls?.IsVisible == true && controls.WindowState != WindowState.Minimized)
         {
-            controls.DisplayFrame(frame, indicators, cues);
+            controls.DisplayFrame(frame, indicators);
             if (seconds - lastReadout >= .12)
             {
                 lastReadout = seconds;
-                controls.Display(frame, rpm, gear, demo, live,
+                controls.Display(rpm, gear, demo, live,
                     store.Warning ?? (Overlay.Shortcut == null ? "Global shortcut unavailable. Use Edit overlay here or in the tray." : null));
             }
         }
@@ -281,7 +217,6 @@ public sealed class Runtime : IDisposable
         Exiting = true;
         update.Stop(); save.Stop();
         feed?.Dispose();
-        awareness.Dispose();
         Flush();
         if (tray != null)
         {

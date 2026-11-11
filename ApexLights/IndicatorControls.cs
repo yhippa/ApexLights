@@ -1,105 +1,14 @@
 using System;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using ApexLights.Core;
 
 namespace ApexLights;
 
 public sealed partial class ControlWindow
 {
-    private ComboBox? lookSelector;
-    private static readonly (string Name, RaceFlag Mask)[] FlagGroups =
-    [
-        ("Red", RaceFlag.Red), ("Black", RaceFlag.Black), ("Repair", RaceFlag.Repair),
-        ("Local yellow", RaceFlag.Yellow | RaceFlag.WavingYellow),
-        ("Full-course caution", RaceFlag.Caution | RaceFlag.WavingCaution),
-        ("Blue", RaceFlag.Blue), ("White", RaceFlag.White), ("Checkered", RaceFlag.Checkered), ("Green", RaceFlag.Green)
-    ];
-
-    private void DemoLookPicker()
-    {
-        lookSelector=Choices("Demo look", ["Cockpit", "My setup"], app.DemoUsesCockpit ? 0 : 1, i => app.SetDemoLook(i == 0));
-        Hint(tab == 0 ? "Cockpit uses the neon preset. My setup uses your saved appearance." :
-            "Editing a visual setting previews your saved setup.");
-    }
-
-    private void DemoScenarios()
-    {
-        Heading("Driving scenarios");
-        DemoLookPicker();
-        var buttons = new WrapPanel();
-        (string, DemoScenario)[] scenes = [
-            ("Full lights", DemoScenario.FullLights),
-            ("Normal driving", DemoScenario.Normal), ("Approach shift", DemoScenario.ApproachShift),
-            ("Side by side", DemoScenario.SideBySide), ("Local yellow", DemoScenario.LocalYellow),
-            ("Green transition", DemoScenario.GreenTransition), ("Blue flag", DemoScenario.BlueFlag),
-            ("Black flag", DemoScenario.BlackFlag), ("Repair required", DemoScenario.Repair),
-            ("Pit limiter", DemoScenario.PitLimiter), ("Finish", DemoScenario.Finish),
-            ("Competing alerts", DemoScenario.Competing)];
-        foreach (var (label, scenario) in scenes)
-        {
-            var button = new Button { Content = label, Margin = new(0, 0, 4, 4), Padding = new(12, 4, 12, 4), MinHeight = 32 };
-            button.Click += (_, _) => app.ApplyScenario(scenario);
-            buttons.Children.Add(button);
-        }
-        section.Children.Add(buttons);
-        var clear = new Button { Content = "Clear alerts", HorizontalAlignment = HorizontalAlignment.Left, Margin = new(0, 4, 0, 4),
-            ToolTip = "Clear flags, limiter and alongside alerts. Keep the current gear, RPM and scale." };
-        clear.Click += (_, _) => app.ClearDemoAlerts();
-        section.Children.Add(clear);
-        double?[] scales = [null, .75, 1, 1.5];
-        Choices("Test scale", ["Saved", "75%", "100%", "150%"], Array.IndexOf(scales, app.Overlay.PreviewScale),
-            i => app.Overlay.PreviewAtScale(scales[i]));
-    }
-
-    private void DemoIndicators()
-    {
-        var demo = app.DemoSignals;
-        Heading("Demo indicators");
-        var actions = new WrapPanel();
-        var show = new Button { Content = "Enable all indicators", Margin = new(0, 0, 6, 0) };
-        show.Click += (_, _) =>
-        {
-            S.Indicators.ShowGear = S.Indicators.ShowFlags = S.Indicators.ShowProximity = true;
-            Changed();
-            SetNotice("Gear, flags, and proximity enabled.");
-        };
-        var session = new Button { Content = "New demo session" };
-        session.Click += (_, _) => { demo.NewSession(); app.RefreshDemo(); SetNotice("New demo session started."); };
-        actions.Children.Add(show); actions.Children.Add(session); section.Children.Add(actions);
-        Check("Demo telemetry connected", demo.Connected, value => { demo.SetConnection(value); app.RefreshDemo(); });
-        Check("Pit limiter engaged", demo.PitLimiter, value => { demo.PitLimiter = value; app.RefreshDemo(); });
-        Range("Demo gear", -1, 12, demo.Gear, 1, n => GearDisplay.Format((int)n),
-            n => { demo.Gear = (int)n; app.RefreshDemo(); });
-        Choices("Alongside", ["Off", "Clear", "Left", "Right", "Both", "Two left", "Two right"], (int)demo.Spotter,
-            i => { demo.Spotter = (SpotterState)i; app.RefreshDemo(); });
-        Heading("Individual demo flags", true);
-        var grid = new UniformGrid { Columns = 3 };
-        (string, RaceFlag)[] flags = [
-            ("Green", RaceFlag.Green), ("Yellow", RaceFlag.Yellow), ("Waving yellow", RaceFlag.WavingYellow),
-            ("Blue", RaceFlag.Blue), ("White", RaceFlag.White), ("Checkered", RaceFlag.Checkered),
-            ("Black", RaceFlag.Black), ("Red", RaceFlag.Red), ("Repair", RaceFlag.Repair),
-            ("Full caution", RaceFlag.Caution), ("Waving caution", RaceFlag.WavingCaution)];
-        foreach (var (name, mask) in flags)
-        {
-            var check = new CheckBox { Content = name, IsChecked = (demo.Flags & mask) != 0, Margin = new(0, 3, 0, 3) };
-            Named(check, "Demo flag " + name);
-            check.Click += (_, _) =>
-            {
-                demo.Flags = check.IsChecked == true ? demo.Flags | mask : demo.Flags & ~mask;
-                app.RefreshDemo();
-            };
-            grid.Children.Add(check);
-        }
-        section.Children.Add(grid);
-    }
-
     private void GearPage()
     {
         var options = S.Indicators;
         Heading("Digital gear");
-        if (demo) DemoLookPicker();
         Check("Show gear", options.ShowGear, value => { options.ShowGear = value; Changed(); });
         Choices("Position", ["Left", "Center", "Right"], (int)options.GearPosition,
             i => { options.GearPosition = (GearPosition)i; Changed(); });
@@ -110,54 +19,4 @@ public sealed partial class ControlWindow
 
     }
 
-    private void ProximityPage()
-    {
-        var options=S.Indicators;
-        Heading("Side markers");
-        if (demo) DemoLookPicker();
-        Check("Show cars alongside", options.ShowProximity, value => { options.ShowProximity = value; Changed(); });
-        Choices("Side marks", ["Chevrons", "Lamps"], (int)options.SideStyle, i => { options.SideStyle = (SideStyle)i; Changed(); });
-        Range("Side cue size", .75, 1.75, options.SideScale, .05, n => $"{n:P0}", n => { options.SideScale = n; Changed(); });
-        Hint("Both means each side is occupied. The spotter can report two left or two right, but gives no count for both sides together.");
-
-        Heading("Peripheral bands");
-        Check("Show peripheral bands", options.PeripheralBands, value => { options.PeripheralBands=value; Changed(); });
-        Hint("Side cues use a centered area up to four-thirds of the monitor height. Increase inset to bring both arrows closer together.");
-        Range("Edge inset", 0, .35, options.SideInset, .01, v=>$"{v:P0}", v=>{options.SideInset=v;Changed();});
-        CueOpacity(options);
-    }
-
-    private void CueOpacity(IndicatorSettings options) =>
-        Range("Cue opacity", .3, 1, options.CueOpacity, .05, v=>$"{v:P0}", v=>{options.CueOpacity=v;Changed();});
-
-    private void FlagsPage()
-    {
-        var options=S.Indicators;
-        Heading("Status panel");
-        if (demo) DemoLookPicker();
-        Check("Show status panel", options.ShowFlags, value => { options.ShowFlags = value; Changed(); });
-        Check("Include pit limiter", options.IncludeLimiter, value => { options.IncludeLimiter = value; Changed(); });
-        Choices("Display", ["Symbol", "With label"], (int)options.FlagStyle, i => { options.FlagStyle = (FlagStyle)i; Changed(); });
-        Range("Flag size", .75, 1.75, options.FlagScale, .05, n => $"{n:P0}", n => { options.FlagScale = n; Changed(); });
-        Choices("White flag", ["Timed", "Until clear"], (int)options.FlagLifetime, i => { options.FlagLifetime = (FlagLifetime)i; Changed(); });
-        Range("Notice duration", 1, 20, options.AlertSeconds, 1, n => $"{n:0} s", n => { options.AlertSeconds = n; Changed(); });
-        Hint("GREEN and FINISH use the notice duration. Warnings and LIMITER stay visible while active.");
-        Check("Accent a newly raised flag", options.AnimateEntry, value => { options.AnimateEntry = value; Changed(); });
-        var dismiss = new Button { Content = "Dismiss current flag", HorizontalAlignment = HorizontalAlignment.Left };
-        dismiss.Click += (_, _) => app.DismissFlag();
-        section.Children.Add(dismiss);
-
-        Heading("Floating warnings");
-        Check("Show floating flag", options.FloatingFlag, value=>{options.FloatingFlag=value; Changed();});
-        Hint("Active cautions and critical flags appear above your forward view.");
-        Range("Vertical position", .05, .65, options.FlagElevation,.01,v=>$"{v:P0}",v=>{options.FlagElevation=v;Changed();});
-        CueOpacity(options);
-        Heading("Flag categories", true);
-        foreach (var (name, mask) in FlagGroups)
-            Check(name, (options.EnabledFlags & mask) != 0, enabled =>
-            {
-                options.EnabledFlags = enabled ? options.EnabledFlags | mask : options.EnabledFlags & ~mask;
-                Changed();
-            });
-    }
 }

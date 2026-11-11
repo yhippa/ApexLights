@@ -103,7 +103,7 @@ internal static partial class Program
         var store = new SettingsStore(path);
         var old = store.Load();
         Assert(old.X == -1400 && old.Y == 233 && old.Count == 10 && old.Scale == 1.36 && old.Offset == 75 &&
-            old.Cars["id-146"] == Points && !old.Indicators.ShowGear && !old.Indicators.ShowFlags &&
+            old.Cars["id-146"] == Points && old.Indicators.ShowGear && !old.Indicators.ShowFlags &&
             !old.Indicators.ShowProximity, "existing settings upgrade");
         var options = old.Indicators;
         options.ShowGear = options.ShowFlags = options.ShowProximity = true;

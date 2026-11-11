@@ -17,6 +17,20 @@ internal static partial class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        Run("Focused layout suppresses saved widgets and retains gear, calibration and scale", () =>
+        {
+            var settings = new Settings { Scale = 1.5, Offset = 135 };
+            settings.Indicators = new IndicatorSettings { ShowGear = true, GearSize = 32, ShowFlags = true,
+                ShowProximity = true, PeripheralBands = true, FloatingFlag = true };
+            settings.Cars["gt"] = Points;
+            settings.UseShiftLightLayout();
+            var size = LedStrip.Footprint(settings);
+            settings.UseShiftLightLayout();
+            Assert(size == LedStrip.Footprint(settings) && settings.Scale == 1.5 && settings.Offset == 135 &&
+                settings.Cars["gt"] == Points && settings.Indicators.GearSize == 32 && settings.Indicators.ShowGear &&
+                !settings.Indicators.ShowFlags && !settings.Indicators.ShowProximity &&
+                !settings.Indicators.FloatingFlag && !settings.Indicators.PeripheralBands, "focused profile");
+        });
         Run("RPM pill keeps even lens margins and centers independently of the flag slot", PillLayout);
         Run("Ultrawide cues stay in the forward view at every tested DPI", ForwardView);
         Run("Gear ink stays inside its reserved region across positions, sizes and DPI", GearInkBounds);
@@ -28,7 +42,7 @@ internal static partial class Program
         Run("Flags expire, clear, dismiss and re-arm by edge", Transitions);
         Run("All seven discrete spotter states activate and clear", Proximity);
         Run("Disconnect, new session and disabled categories reset alert state", SessionChanges);
-        Run("1.0 settings migrate with indicators off and round-trip 1.1 options", Upgrade);
+        Run("1.0 settings migrate with gear enabled and round-trip 1.1 options", Upgrade);
         Run("1.1 keeps enabled cues and adopts bounded independent cue sizes", CueSizeUpgrade);
         Run("Demo feeds real alert logic through disconnect and reconnect", DemoCycle);
         Run("Critical flags persist, preempt and clear from the current signal", PendingCritical);
