@@ -31,6 +31,7 @@ internal static partial class Program
                 !settings.Indicators.ShowFlags && !settings.Indicators.ShowProximity &&
                 !settings.Indicators.FloatingFlag && !settings.Indicators.PeripheralBands, "focused profile");
         });
+        Run("Frameless driving LEDs, transparent gaps and centered gear scale together", DrivingStripPixels);
         Run("RPM pill keeps even lens margins and centers independently of the flag slot", PillLayout);
         Run("Ultrawide cues stay in the forward view at every tested DPI", ForwardView);
         Run("Gear ink stays inside its reserved region across positions, sizes and DPI", GearInkBounds);

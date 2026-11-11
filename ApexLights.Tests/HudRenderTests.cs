@@ -18,6 +18,33 @@ internal static partial class Program
         return data;
     }
 
+    private static void DrivingStripPixels()
+    {
+        var config = new Settings { InactiveBrightness = 0 };
+        var strip = new DrivingStrip();
+        strip.Configure(config);
+        strip.Display(new LightFrame(1, false, true));
+        strip.DisplayIndicators(new IndicatorFrame("4"));
+        var size = DrivingStrip.Footprint(config);
+        foreach (int scale in new[] { 1, 2 })
+        {
+            var scaled = new Size(size.Width * scale, size.Height * scale);
+            strip.Measure(scaled);
+            strip.Arrange(new Rect(scaled));
+            int width = (int)Math.Ceiling(scaled.Width);
+            int height = (int)Math.Ceiling(scaled.Height);
+            var pixels = Pixels(strip,width,height,96);
+            byte Alpha(int x,int y) => pixels[(y*width+x)*4+3];
+            int rows = 0;
+            for (int y=0;y<height;y++) if (Alpha(2,y)>0) rows++;
+            Assert(rows==8*scale && Alpha(0,0)==255 && Alpha(width-1,0)==0,"flat segment on a clear field");
+            int left=width,right=-1;
+            for (int y=10*scale;y<height;y++)
+            for (int x=0;x<width;x++) if (Alpha(x,y)>32) { left=Math.Min(left,x); right=Math.Max(right,x); }
+            Assert(right>left && Math.Abs(left+right+1-size.Width*scale)<3,"centered secondary gear");
+        }
+    }
+
     private static void PillLayout()
     {
         var settings = new Settings();

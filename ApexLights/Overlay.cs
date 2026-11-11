@@ -24,7 +24,7 @@ public sealed class Overlay : Window
     private IntPtr hwnd;
     private bool placed;
     private double resizeOrigin, resizeDelta;
-    public LedStrip Strip { get; } = new();
+    internal DrivingStrip Strip { get; } = new();
     public bool Editing { get; private set; }
     public string? Shortcut { get; private set; }
 
@@ -53,7 +53,7 @@ public sealed class Overlay : Window
         grip.DragDelta += (_, e) =>
         {
             resizeDelta += e.HorizontalChange;
-            settings.Scale = Math.Clamp((resizeOrigin + resizeDelta) / LedStrip.Footprint(settings).Width, 0.5, 2.5);
+            settings.Scale = Math.Clamp((resizeOrigin + resizeDelta) / (DrivingStrip.Footprint(settings).Width * Density), 0.5, 2.5);
             ApplySize();
             changed();
         };
@@ -70,6 +70,7 @@ public sealed class Overlay : Window
             HwndSource.FromHwnd(hwnd)!.AddHook(Message);
             if (RegisterHotKey(hwnd, 1, 0x4003, 0x4C)) Shortcut = "Ctrl + Alt + L";
             else if (RegisterHotKey(hwnd, 1, 0x4007, 0x4C)) Shortcut = "Ctrl + Alt + Shift + L";
+            ApplySize();
             SetEdit(false);
         };
         ContentRendered += (_, _) =>
@@ -77,7 +78,7 @@ public sealed class Overlay : Window
             if (!placed) { placed = true; RestorePlacement(); }
         };
         SizeChanged += (_, _) => RecenterAfterLayout();
-        DpiChanged += (_, _) => RecenterAfterLayout();
+        DpiChanged += (_, _) => Dispatcher.BeginInvoke(ApplySize);
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += DisplaySettingsChanged;
         Closed += (_, _) => {
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= DisplaySettingsChanged;
@@ -91,11 +92,13 @@ public sealed class Overlay : Window
         if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke(CheckMonitor);
     }
 
+    private double Density => Math.Min(1, 1.5 / VisualTreeHelper.GetDpi(this).DpiScaleY);
+
     public void ApplySize()
     {
-        var size = LedStrip.Footprint(settings);
-        Width = size.Width * settings.Scale;
-        Height = size.Height * settings.Scale;
+        var size = DrivingStrip.Footprint(settings);
+        Width = size.Width * settings.Scale * Density;
+        Height = size.Height * settings.Scale * Density;
         Opacity = settings.Opacity;
         Strip.Configure(settings);
     }
@@ -131,12 +134,12 @@ public sealed class Overlay : Window
         var screen = Forms.Screen.FromPoint(point);
         if (!screen.Bounds.Contains(point)) { Position(Forms.Screen.PrimaryScreen!, null, null); return; }
         bool centered = settings.CenteredPlacement ?? WasLegacyDefault(screen, x, y);
-        if (!centered)
+        if (!centered && !settings.CompactPlacement)
         {
-            var current = LedStrip.Footprint(settings);
+            var current = DrivingStrip.Footprint(settings);
             var dpi = VisualTreeHelper.GetDpi(this);
-            x += (int)Math.Round((previousFootprint.Width - current.Width) * settings.Scale * dpi.DpiScaleX / 2);
-            y += (int)Math.Round((previousFootprint.Height - current.Height) * settings.Scale * dpi.DpiScaleY / 2);
+            x += (int)Math.Round((previousFootprint.Width - current.Width * Density) * settings.Scale * dpi.DpiScaleX / 2);
+            y += (int)Math.Round((previousFootprint.Height - current.Height * Density) * settings.Scale * dpi.DpiScaleY / 2);
         }
         Position(screen, centered ? null : x, centered ? null : y);
     }
@@ -188,6 +191,7 @@ public sealed class Overlay : Window
         left = Math.Clamp(left, area.Left, Math.Max(area.Left, area.Right - width));
         top = Math.Clamp(top, area.Top, Math.Max(area.Top, area.Bottom - height));
         settings.CenteredPlacement = centered;
+        settings.CompactPlacement = true;
         SetWindowPos(hwnd, IntPtr.Zero, left, top, 0, 0, 0x15);
         CapturePosition();
     }
