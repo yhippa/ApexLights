@@ -31,7 +31,7 @@ public sealed partial class ControlWindow : Window
     private readonly TextBlock sourceLabel = Label("", 11), reading = Label("", 13);
     private readonly TextBlock notice = Label("", 12);
     private readonly Button edit = new(), hide = new() { Content = "Hide settings" };
-    private readonly LedStrip preview = new();
+    private readonly DrivingStrip preview = new();
     private int tab;
     private bool demo;
     private string carKey = "", carName = "";

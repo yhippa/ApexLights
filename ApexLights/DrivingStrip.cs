@@ -57,6 +57,8 @@ internal sealed class DrivingStrip : FrameworkElement
         var size = Footprint(settings);
         double scale = Math.Min(ActualWidth / size.Width, ActualHeight / size.Height);
         if (scale <= 0) return;
+        dc.PushTransform(new TranslateTransform((ActualWidth - size.Width * scale) / 2,
+            (ActualHeight - size.Height * scale) / 2));
         dc.PushTransform(new ScaleTransform(scale, scale));
         for (int i = 0; i < settings.Count; i++)
         {
@@ -72,6 +74,7 @@ internal sealed class DrivingStrip : FrameworkElement
                     FontStyles.Normal, FontWeights.Bold, FontStretches.Normal), GearHeight(settings), Brushes.White, dpi, HudArt.GearKeyline);
             glyph.DrawCentered(dc, new Rect(0, SegmentHeight + GearGap, size.Width, GearHeight(settings)));
         }
+        dc.Pop();
         dc.Pop();
     }
 }
